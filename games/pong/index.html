@@ -1,0 +1,1219 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<title>Pong</title>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: #000;
+    height: 100%;
+    overflow: hidden;
+    font-family: "Courier New", monospace;
+    color: #fff;
+  }
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+  }
+  #wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+  canvas {
+    background: #000;
+    border: 2px solid #fff;
+    display: block;
+    image-rendering: pixelated;
+  }
+  #hint {
+    font-size: 14px;
+    letter-spacing: 1px;
+    opacity: 0.7;
+    text-align: center;
+    min-height: 1.4em;
+  }
+
+  /* ---- Konečná obrazovka ---- */
+  #end-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: #000;
+    z-index: 100;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 16px 16px;
+    box-sizing: border-box;
+  }
+  #end-overlay.visible { display: flex; }
+  #end-title {
+    flex-shrink: 0;
+    font-size: clamp(16px, 2.4vw, 30px);
+    letter-spacing: 2px;
+    text-align: center;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    line-height: 1.7;
+  }
+  #end-photo-wrap {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+  }
+  #end-photo {
+    max-height: 100%;
+    max-width: 100%;
+    object-fit: contain;
+    display: block;
+  }
+  #end-restart {
+    flex-shrink: 0;
+    margin-top: 14px;
+    font-size: 14px;
+    letter-spacing: 1px;
+    opacity: 0.65;
+    text-align: center;
+  }
+  #end-single {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+  }
+  #end-multi {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    gap: 2px;
+  }
+  .end-player-col {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .end-player-title {
+    flex-shrink: 0;
+    font-size: clamp(12px, 1.8vw, 22px);
+    letter-spacing: 2px;
+    text-align: center;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    line-height: 1.7;
+  }
+  .end-player-photo-wrap {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+  }
+  .end-player-photo {
+    max-height: 100%;
+    max-width: 100%;
+    object-fit: contain;
+    display: block;
+  }
+
+  /* ---- Nastavení ---- */
+  #settings-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: #000;
+    z-index: 200;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 36px;
+    padding: 24px;
+    box-sizing: border-box;
+    font-family: "Courier New", monospace;
+    color: #fff;
+  }
+  #settings-overlay.visible { display: flex; }
+  #settings-title {
+    font-size: clamp(18px, 2.8vw, 32px);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+  }
+  #settings-cols {
+    display: flex;
+    flex-direction: row;
+    gap: 64px;
+    align-items: flex-start;
+  }
+  .settings-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+  }
+  .settings-player-label {
+    letter-spacing: 2px;
+    font-size: clamp(12px, 1.5vw, 18px);
+    opacity: 0.6;
+    text-transform: uppercase;
+  }
+  .settings-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .settings-action-label {
+    opacity: 0.55;
+    min-width: 65px;
+    text-align: right;
+    font-size: clamp(12px, 1.5vw, 17px);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .settings-key-btn {
+    background: #111;
+    color: #fff;
+    border: 2px solid #555;
+    font-family: "Courier New", monospace;
+    font-size: clamp(13px, 1.8vw, 20px);
+    letter-spacing: 1px;
+    padding: 8px 18px;
+    min-width: 110px;
+    text-align: center;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: border-color 0.1s;
+  }
+  .settings-key-btn:hover { border-color: #fff; }
+  .settings-key-btn.listening {
+    background: #fff;
+    color: #000;
+    border-color: #fff;
+    animation: settings-blink 0.6s step-end infinite;
+  }
+  @keyframes settings-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+  }
+  #settings-status {
+    font-size: clamp(11px, 1.4vw, 15px);
+    opacity: 0.5;
+    letter-spacing: 1px;
+    text-align: center;
+    min-height: 1.4em;
+  }
+  #settings-back {
+    font-size: 13px;
+    opacity: 0.45;
+    letter-spacing: 1px;
+  }
+
+  /* ---- Zpět do hlavního menu ---- */
+  #back-to-menu {
+    position: fixed;
+    top: 16px;
+    left: 16px;
+    z-index: 300;
+    color: #fff;
+    text-decoration: none;
+    font-family: "Courier New", monospace;
+    font-size: 14px;
+    letter-spacing: 2px;
+    padding: 8px 14px;
+    border: 2px solid #555;
+    background: #111;
+    text-transform: uppercase;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  #back-to-menu:hover { border-color: #fff; }
+</style>
+</head>
+<body>
+
+<a id="back-to-menu" href="../../index.html" title="Zpět do menu">&larr; Menu</a>
+
+<div id="wrap">
+  <canvas id="game" width="800" height="500"></canvas>
+  <div id="hint"></div>
+</div>
+
+<div id="end-overlay">
+  <div id="end-single">
+    <div id="end-title"></div>
+    <div id="end-photo-wrap"><img id="end-photo" src="" alt=""></div>
+  </div>
+  <div id="end-multi">
+    <div class="end-player-col">
+      <div class="end-player-title" id="end-title-left"></div>
+      <div class="end-player-photo-wrap"><img class="end-player-photo" id="end-photo-left" src="" alt=""></div>
+    </div>
+    <div class="end-player-col">
+      <div class="end-player-title" id="end-title-right"></div>
+      <div class="end-player-photo-wrap"><img class="end-player-photo" id="end-photo-right" src="" alt=""></div>
+    </div>
+  </div>
+  <div id="end-restart"></div>
+</div>
+
+<div id="settings-overlay">
+  <div id="settings-title">Nastavení ovládání</div>
+  <div id="settings-cols">
+    <div class="settings-col">
+      <div class="settings-player-label">Hráč 1 – vlevo</div>
+      <div class="settings-row">
+        <span class="settings-action-label">Nahoru</span>
+        <button class="settings-key-btn" data-binding="p1Up"></button>
+      </div>
+      <div class="settings-row">
+        <span class="settings-action-label">Dolů</span>
+        <button class="settings-key-btn" data-binding="p1Down"></button>
+      </div>
+    </div>
+    <div class="settings-col">
+      <div class="settings-player-label">Hráč 2 / Solo – vpravo</div>
+      <div class="settings-row">
+        <span class="settings-action-label">Nahoru</span>
+        <button class="settings-key-btn" data-binding="p2Up"></button>
+      </div>
+      <div class="settings-row">
+        <span class="settings-action-label">Dolů</span>
+        <button class="settings-key-btn" data-binding="p2Down"></button>
+      </div>
+    </div>
+  </div>
+  <div id="settings-status">Klikni na tlačítko a stiskni novou klávesu</div>
+  <div id="settings-back">ESC = zpět do menu</div>
+</div>
+
+<script>
+(() => {
+  const canvas    = document.getElementById('game');
+  const ctx       = canvas.getContext('2d');
+  const W = canvas.width;   // 800
+  const H = canvas.height;  // 500
+
+  const overlay          = document.getElementById('end-overlay');
+  const endSingle        = document.getElementById('end-single');
+  const endMulti         = document.getElementById('end-multi');
+  const endTitle         = document.getElementById('end-title');
+  const endPhoto         = document.getElementById('end-photo');
+  const endTitleLeft     = document.getElementById('end-title-left');
+  const endTitleRight    = document.getElementById('end-title-right');
+  const endPhotoLeft     = document.getElementById('end-photo-left');
+  const endPhotoRight    = document.getElementById('end-photo-right');
+  const endRestart       = document.getElementById('end-restart');
+  const hintEl           = document.getElementById('hint');
+  const settingsOverlay  = document.getElementById('settings-overlay');
+  const settingsStatus   = document.getElementById('settings-status');
+  const settingsBtns     = document.querySelectorAll('.settings-key-btn');
+
+  // ─── Foto pro výsledkovou obrazovku ──────────────────────────────────────
+  const WIN_PHOTO_PATHS = [
+    'foto/win/04aa988a-32a1-43ce-914c-fdd40759cc9d.jpg',
+    'foto/win/138cb19d-243e-4431-92f3-6a19e7c31eac.jpg',
+    'foto/win/1bbe496f-83da-41b8-8201-7f4a93cc52f2.jpg',
+    'foto/win/4d0ccbd4-075e-4052-818b-733d01e89f27.jpg',
+    'foto/win/550bab77-8def-4b03-8f3a-f6922bad6297.jpg',
+    'foto/win/5d2f4058-2de2-4d4d-8572-5ef10f02995e.jpg',
+    'foto/win/600704a4-4a27-4e33-94fe-90925ab9bd93.jpg',
+    'foto/win/639212e8-16ec-47f2-b9c4-054375b44b84.jpg',
+    'foto/win/682109294_2078884419675901_6249636280568364651_n.jpg',
+    'foto/win/682349994_1503808564434725_3106607870594081620_n.jpg',
+    'foto/win/683572597_1466353638566542_732545989289551137_n.jpg',
+    'foto/win/684141674_1658718195412443_4842738344757960113_n.jpg',
+    'foto/win/684182875_2792288164464433_2796367673041508308_n.jpg',
+    'foto/win/684247834_2165807477603498_5985019825465343883_n.jpg',
+    'foto/win/684265364_1553528026464644_7963851594047781981_n.jpg',
+    'foto/win/684539946_948798251278560_3823951697863552203_n.jpg',
+    'foto/win/684957676_2478858695964981_5502683789503409970_n.jpg',
+    'foto/win/685029269_2038313243433424_2232653423547662608_n.jpg',
+    'foto/win/685261679_1322215396428686_3164124072376049265_n.jpg',
+    'foto/win/686983956_845893781288335_585857313925057861_n.jpg',
+    'foto/win/687342231_1671538504122683_5712340263145852340_n.jpg',
+    'foto/win/687737044_2117477302318721_183046690575072576_n.jpg',
+    'foto/win/690732593_1285823333749770_5311321969792060015_n.jpg',
+    'foto/win/692059822_1876003943086316_2426462945013101791_n.jpg',
+    'foto/win/6c4301a4-794b-4e89-b2d6-bc69b0d9fd9e.jpg',
+    'foto/win/6d2dce1b-0797-48c8-9261-5c2c51ca7b28.jpg',
+    'foto/win/6ff339c7-afb2-4de2-bb1f-c31c1e4c7430.jpg',
+    'foto/win/70ecbc50-8d2d-4da9-a334-9add4631b584.jpg',
+    'foto/win/94513c83-0e56-4031-844f-a66937fb6db4.jpg',
+    'foto/win/a1cb254a-61ab-4fee-bd31-f4edef066763.jpg',
+    'foto/win/a8a7f70e-0cfb-4518-a305-90c4ad9783d9.jpg',
+    'foto/win/aaf67274-b112-44cc-b3e5-87497e918a9b.jpg',
+    'foto/win/bbee477a-2f1f-4c5d-92ec-bcc5bcd47ef7.jpg',
+    'foto/win/c87e90fe-1ba7-4808-9aa6-8422e0cb8c13.jpg',
+    'foto/win/d78c2f91-7283-4bbd-adb0-8ddf037b90a3.jpg',
+  ];
+  const LOSE_PHOTO_PATHS = [
+    'foto/lose/0a2986cf-0057-4228-b221-dbadb90b8eb1.jpg',
+    'foto/lose/1275ed95-9d01-4dd7-bf55-1b8d73c6e5e1.jpg',
+    'foto/lose/1e54cf94-0d94-4d84-8c6b-6ad8291e8a95.jpg',
+    'foto/lose/3371de56-f114-4e35-a520-4f019a106adb.jpg',
+    'foto/lose/63c68f6c-2e97-4e2d-8e9e-081fe7d0dfba.jpg',
+    'foto/lose/677765997_1279374297161622_2915920084174886197_n.jpg',
+    'foto/lose/684213142_1638832620660337_3694396337326535096_n.jpg',
+    'foto/lose/684681221_1937600696922800_2143964411369700218_n.jpg',
+    'foto/lose/686202429_2852613868418496_3916954989599445283_n.jpg',
+    'foto/lose/686301922_1635984324285813_4203615942112304654_n.jpg',
+    'foto/lose/687074041_4279997242353512_7845418776306581649_n.jpg',
+    'foto/lose/687676086_981657350977054_1261411085956947271_n.jpg',
+    'foto/lose/687977965_990667903613991_2655740697087729102_n.jpg',
+    'foto/lose/692080452_1448811569789065_3073966680528390904_n.jpg',
+    'foto/lose/6a188b17-074f-40db-a2ce-5392814e5f92.jpg',
+    'foto/lose/bc84935c-cbb2-430c-a283-966819fac036.jpg',
+    'foto/lose/d6f43606-b963-4705-be7c-e8c04398a276.jpg',
+    'foto/lose/d89f440b-422a-48ba-81dd-d83ecea3c046.jpg',
+    'foto/lose/df7f5f6c-ceeb-43d4-ab1d-a5ccf1d42129.jpg',
+    'foto/lose/f7d1f98d-61cc-48de-ae53-58062efff228.jpg',
+    'foto/lose/f9e631ce-d623-4d58-8425-f10c943ed4b7.jpg',
+  ];
+
+  const ALL_PHOTO_PATHS = [...WIN_PHOTO_PATHS, ...LOSE_PHOTO_PATHS];
+  const ALL_IMAGES = ALL_PHOTO_PATHS.map(src => {
+    const img = new Image();
+    img.src = src;
+    return img;
+  });
+
+  const mysteryBoxImg = new Image();
+  mysteryBoxImg.src = 'foto/mystery_box.png';
+
+  function pickRandom(arr) {
+    return arr[Math.floor(Math.random() * arr.length)];
+  }
+
+  function formatKey(key) {
+    const map = { ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→', ' ': 'SPC' };
+    return map[key] !== undefined ? map[key] : key.toUpperCase();
+  }
+
+  function keyMatches(eventKey, binding) {
+    return eventKey.toLowerCase() === binding.toLowerCase();
+  }
+
+  // ─── Konečná obrazovka ────────────────────────────────────────────────────
+  function showEndScreen(p1Won) {
+    if (gameMode === MODE.SOLO) {
+      if (p1Won) {
+        endTitle.innerHTML = 'VYHRÁL JSI – APPROVED BY 6&amp;2';
+        endPhoto.src = pickRandom(WIN_PHOTO_PATHS);
+      } else {
+        endTitle.innerHTML = 'PROHRÁL JSI – SI K HOVNU';
+        endPhoto.src = pickRandom(LOSE_PHOTO_PATHS);
+      }
+      endSingle.style.display = 'flex';
+      endMulti.style.display  = 'none';
+    } else {
+      if (p1Won) {
+        endTitleLeft.innerHTML  = 'Hráč 1 – approved by 6&amp;2';
+        endPhotoLeft.src        = pickRandom(WIN_PHOTO_PATHS);
+        endTitleRight.innerHTML = 'Hráč 2 – si k hovnu';
+        endPhotoRight.src       = pickRandom(LOSE_PHOTO_PATHS);
+      } else {
+        endTitleLeft.innerHTML  = 'Hráč 1 – si k hovnu';
+        endPhotoLeft.src        = pickRandom(LOSE_PHOTO_PATHS);
+        endTitleRight.innerHTML = 'Hráč 2 – approved by 6&amp;2';
+        endPhotoRight.src       = pickRandom(WIN_PHOTO_PATHS);
+      }
+      endSingle.style.display = 'none';
+      endMulti.style.display  = 'flex';
+    }
+    endRestart.textContent = 'MEZERNÍK = NOVÁ HRA  ·  ESC = MENU';
+    overlay.classList.add('visible');
+  }
+  function hideEndScreen() {
+    overlay.classList.remove('visible');
+    endPhoto.src      = '';
+    endPhotoLeft.src  = '';
+    endPhotoRight.src = '';
+  }
+
+  // ─── Nastavení ovládání ───────────────────────────────────────────────────
+  function updateSettingsBtns() {
+    settingsBtns.forEach(btn => {
+      btn.textContent = formatKey(bindings[btn.dataset.binding]);
+      btn.classList.remove('listening');
+    });
+  }
+
+  function showSettings() {
+    listeningFor = null;
+    updateSettingsBtns();
+    settingsStatus.textContent = 'Klikni na tlačítko a stiskni novou klávesu';
+    settingsOverlay.classList.add('visible');
+    menuPhase = 'settings';
+    updateHint();
+  }
+
+  function hideSettings() {
+    listeningFor = null;
+    settingsOverlay.classList.remove('visible');
+    menuPhase = 'mode';
+    updateHint();
+  }
+
+  settingsBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (listeningFor) updateSettingsBtns();
+      listeningFor = btn.dataset.binding;
+      btn.classList.add('listening');
+      btn.textContent = '...';
+      settingsStatus.textContent = 'Stiskni novou klávesu · ESC = zrušit';
+    });
+  });
+
+  // ─── Herní konstanty ──────────────────────────────────────────────────────
+  const PADDLE_W      = 12;
+  const PADDLE_H      = 80;
+  const PADDLE_MARGIN = 20;
+  const BALL_SIZE     = 12;
+
+  const PLAYER_SPEED = 7;
+
+  const AI_CONFIGS = {
+    easy:   { speed: 3.0, deadzone: 22, noise: 62 },
+    medium: { speed: 4.6, deadzone: 8,  noise: 28 },
+    hard:   { speed: 5.8, deadzone: 3,  noise: 8  },
+  };
+  let aiSpeed      = AI_CONFIGS.medium.speed;
+  let aiDeadzone   = AI_CONFIGS.medium.deadzone;
+  let aiNoiseRange = AI_CONFIGS.medium.noise;
+  let aiDifficulty = 'medium';
+
+  function setDifficulty(level) {
+    aiDifficulty = level;
+    const cfg = AI_CONFIGS[level];
+    aiSpeed      = cfg.speed;
+    aiDeadzone   = cfg.deadzone;
+    aiNoiseRange = cfg.noise;
+  }
+
+  const BALL_START_SPEED = 5.2;
+  const BALL_SPEED_INC   = 0.35;
+  const BALL_MAX_SPEED   = 11;
+  const MAX_BOUNCE_ANGLE = Math.PI / 3;
+
+  const BOX_SIZE           = 50;
+  const BOX_MAX            = 2;
+  const BOX_FIRST_DELAY    = 3000;
+  const BOX_SPAWN_INTERVAL = 3000;
+  const BOX_LIFESPAN       = 9000;
+  const BOX_BLINK_AT       = 2500;
+
+  // ─── Ovládání ─────────────────────────────────────────────────────────────
+  const bindings = { p1Up: 'w', p1Down: 's', p2Up: 'ArrowUp', p2Down: 'ArrowDown' };
+  let listeningFor = null;
+
+  // ─── Režim hry ────────────────────────────────────────────────────────────
+  const MODE = { SOLO: 'solo', MULTI: 'multi' };
+  let gameMode  = MODE.SOLO;
+  let menuPhase = 'mode'; // 'mode' | 'difficulty' | 'score' | 'settings'
+  let winScore  = 1;
+
+  // ─── Stav hry ─────────────────────────────────────────────────────────────
+  const STATE = { MENU: 'menu', READY: 'ready', PLAYING: 'playing', GAMEOVER: 'gameover' };
+  let state = STATE.MENU;
+
+  const player = { x: PADDLE_MARGIN,               y: H / 2 - PADDLE_H / 2, h: PADDLE_H, growExpiry: null, score: 0 };
+  const right  = { x: W - PADDLE_MARGIN - PADDLE_W, y: H / 2 - PADDLE_H / 2, h: PADDLE_H, growExpiry: null, score: 0 };
+
+  let balls        = [];
+  let boxes        = [];
+  let textEffects  = [];
+  let aiTargetNoise    = 0;
+  let lastBoxSpawnTime = 0;
+  let pointStartTime   = 0;
+  let lastWinner       = null;
+  let lastHitBy        = null; // 'player' | 'right'
+  let pendingDirX      = 1;   // směr příštího servu (-1 vlevo, +1 vpravo)
+  let lastBoxEffect    = null; // název posledního efektu z mystery boxu
+
+  const keys = { p1Up: false, p1Down: false, p2Up: false, p2Down: false };
+
+  function makeBall(x, y, vx, vy, speed, isExtra = false) {
+    return { x, y, vx, vy, speed, isExtra };
+  }
+  function initBall() {
+    balls = [makeBall(W / 2 - BALL_SIZE / 2, H / 2 - BALL_SIZE / 2, 0, 0, BALL_START_SPEED)];
+  }
+
+  // ─── Hint pod plátnem ─────────────────────────────────────────────────────
+  function updateHint() {
+    if (state === STATE.MENU && menuPhase === 'mode') {
+      hintEl.textContent = '[ 1 ] Proti počítači   [ 2 ] Multiplayer   [ 3 ] Nastavení';
+    } else if (state === STATE.MENU && menuPhase === 'difficulty') {
+      hintEl.textContent = '[ 1 ] Easy   [ 2 ] Medium   [ 3 ] Hard';
+    } else if (state === STATE.MENU && menuPhase === 'score') {
+      hintEl.textContent = 'Stiskni číslo 1–9 pro výběr počtu výherních bodů';
+    } else if (state === STATE.MENU && menuPhase === 'settings') {
+      hintEl.textContent = 'Klikni na klávesu pro změnu · ESC = zpět';
+    } else if (gameMode === MODE.SOLO) {
+      hintEl.textContent = `${formatKey(bindings.p2Up)} / ${formatKey(bindings.p2Down)}  ·  MEZERNÍK pro start  ·  ESC = menu`;
+    } else {
+      hintEl.textContent = `Hráč 1 (vlevo): ${formatKey(bindings.p1Up)} / ${formatKey(bindings.p1Down)}   ·   Hráč 2 (vpravo): ${formatKey(bindings.p2Up)} / ${formatKey(bindings.p2Down)}   ·  MEZERNÍK pro start  ·  ESC = menu`;
+    }
+  }
+
+  // ─── Audio ────────────────────────────────────────────────────────────────
+  let audioCtx = null;
+  function ensureAudio() {
+    if (!audioCtx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (AC) audioCtx = new AC();
+    }
+  }
+  function beep(freq, duration = 0.07, type = 'square', gain = 0.06) {
+    if (!audioCtx) return;
+    const osc = audioCtx.createOscillator();
+    const g   = audioCtx.createGain();
+    osc.type = type; osc.frequency.value = freq; g.gain.value = gain;
+    osc.connect(g); g.connect(audioCtx.destination);
+    const t = audioCtx.currentTime;
+    osc.start(t);
+    g.gain.setValueAtTime(gain, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + duration);
+    osc.stop(t + duration);
+  }
+  const soundPaddle  = () => beep(520, 0.06);
+  const soundWall    = () => beep(330, 0.05);
+  const soundScore   = () => { beep(180, 0.18, 'square', 0.08); setTimeout(() => beep(140, 0.22, 'square', 0.07), 120); };
+  const soundSpeedUp = () => { beep(600, 0.05); setTimeout(() => beep(900, 0.08), 55); };
+  const soundReverse = () => { beep(450, 0.05); setTimeout(() => beep(220, 0.09), 55); };
+  const soundSplit   = () => { beep(380, 0.04); setTimeout(() => beep(320, 0.04), 50); setTimeout(() => beep(260, 0.07), 100); };
+  const soundGrow    = () => { beep(200, 0.06); setTimeout(() => beep(260, 0.06), 70); setTimeout(() => beep(330, 0.09), 140); };
+  const soundShrink  = () => { beep(330, 0.06); setTimeout(() => beep(260, 0.06), 70); setTimeout(() => beep(180, 0.09), 140); };
+  const soundSolid    = () => beep(120, 0.22, 'square', 0.1);
+  const soundRedirect = () => { beep(700, 0.04); setTimeout(() => beep(500, 0.04), 45); setTimeout(() => beep(300, 0.07), 90); };
+
+  // ─── Vstupy ───────────────────────────────────────────────────────────────
+  const BLOCKED_BINDING_KEYS = ['Escape', ' ', 'Shift', 'Control', 'Alt', 'Meta', 'CapsLock', 'Tab'];
+
+  document.addEventListener('keydown', e => {
+    // Zachycení klávesy pro nastavení (nejvyšší priorita)
+    if (listeningFor) {
+      if (e.key === 'Escape') {
+        updateSettingsBtns();
+        listeningFor = null;
+        settingsStatus.textContent = 'Klikni na tlačítko a stiskni novou klávesu';
+      } else if (!BLOCKED_BINDING_KEYS.includes(e.key)) {
+        bindings[listeningFor] = e.key;
+        updateSettingsBtns();
+        listeningFor = null;
+        settingsStatus.textContent = 'Klikni na tlačítko a stiskni novou klávesu';
+        updateHint();
+      }
+      e.preventDefault();
+      return;
+    }
+
+    if (keyMatches(e.key, bindings.p1Up))   { keys.p1Up   = true; e.preventDefault(); }
+    if (keyMatches(e.key, bindings.p1Down)) { keys.p1Down = true; e.preventDefault(); }
+    if (keyMatches(e.key, bindings.p2Up))   { keys.p2Up   = true; e.preventDefault(); }
+    if (keyMatches(e.key, bindings.p2Down)) { keys.p2Down = true; e.preventDefault(); }
+
+    if (e.key === 'Escape') {
+      ensureAudio();
+      if (menuPhase === 'settings') { hideSettings(); e.preventDefault(); return; }
+      if (state === STATE.GAMEOVER) hideEndScreen();
+      goToMenu();
+      e.preventDefault();
+    }
+
+    if (e.key === ' ' || e.code === 'Space') {
+      ensureAudio();
+      if (state === STATE.MENU) {
+        // mezerník na menu = nic
+      } else if (state === STATE.READY) {
+        startPoint();
+      } else if (state === STATE.GAMEOVER) {
+        hideEndScreen();
+        goToMenu();
+      }
+      e.preventDefault();
+    }
+
+    if (state === STATE.MENU) {
+      ensureAudio();
+      if (menuPhase === 'mode') {
+        if (e.key === '1') { gameMode = MODE.SOLO;  menuPhase = 'difficulty'; updateHint(); }
+        if (e.key === '2') { gameMode = MODE.MULTI; menuPhase = 'score';      updateHint(); }
+        if (e.key === '3') { showSettings(); }
+      } else if (menuPhase === 'difficulty') {
+        if (e.key === '1') { setDifficulty('easy');   menuPhase = 'score'; updateHint(); }
+        if (e.key === '2') { setDifficulty('medium'); menuPhase = 'score'; updateHint(); }
+        if (e.key === '3') { setDifficulty('hard');   menuPhase = 'score'; updateHint(); }
+      } else if (menuPhase === 'score') {
+        const n = parseInt(e.key);
+        if (n >= 1 && n <= 9) { winScore = n; startNewMatch(); }
+      }
+    }
+  });
+  document.addEventListener('keyup', e => {
+    if (keyMatches(e.key, bindings.p1Up))   keys.p1Up   = false;
+    if (keyMatches(e.key, bindings.p1Down)) keys.p1Down = false;
+    if (keyMatches(e.key, bindings.p2Up))   keys.p2Up   = false;
+    if (keyMatches(e.key, bindings.p2Down)) keys.p2Down = false;
+  });
+
+  // ─── Přechody stavů ───────────────────────────────────────────────────────
+  function goToMenu() {
+    player.score = 0;
+    right.score  = 0;
+    lastWinner   = null;
+    boxes        = [];
+    textEffects  = [];
+    menuPhase    = 'mode';
+    initBall();
+    state = STATE.MENU;
+    updateHint();
+  }
+
+  function startNewMatch() {
+    player.score = 0;
+    right.score  = 0;
+    player.h          = PADDLE_H;
+    right.h           = PADDLE_H;
+    player.growExpiry = null;
+    right.growExpiry  = null;
+    lastWinner        = null;
+    lastHitBy         = null;
+    boxes        = [];
+    textEffects  = [];
+    pendingDirX   = Math.random() < 0.5 ? -1 : 1;
+    lastBoxEffect = null;
+    initBall();
+    state = STATE.READY;
+    updateHint();
+  }
+
+  function startPoint() {
+    const now = performance.now();
+    pointStartTime   = now;
+    lastBoxSpawnTime = now;
+
+    const dirX = pendingDirX;
+    const angle = (Math.random() * 0.5 - 0.25) * Math.PI;
+    const b = balls[0];
+    b.speed = BALL_START_SPEED;
+    b.vx    = Math.cos(angle) * BALL_START_SPEED * dirX;
+    b.vy    = Math.sin(angle) * BALL_START_SPEED;
+    b.x     = W / 2 - BALL_SIZE / 2;
+    b.y     = H / 2 - BALL_SIZE / 2;
+
+    aiTargetNoise = (Math.random() * 2 - 1) * aiNoiseRange;
+    state = STATE.PLAYING;
+  }
+
+  // ─── Pohyb plošinek ───────────────────────────────────────────────────────
+  function updatePlayer1() {
+    // SOLO: p2 klávesy = levá plošinka; MULTI: p2 klávesy = pravá plošinka
+    const paddle = gameMode === MODE.MULTI ? right : player;
+    if (keys.p2Up)   paddle.y -= PLAYER_SPEED;
+    if (keys.p2Down) paddle.y += PLAYER_SPEED;
+    paddle.y = Math.max(0, Math.min(H - paddle.h, paddle.y));
+  }
+
+  function updatePlayer2() {
+    // p1 klávesy = vždy levá plošinka v MULTI
+    if (keys.p1Up)   player.y -= PLAYER_SPEED;
+    if (keys.p1Down) player.y += PLAYER_SPEED;
+    player.y = Math.max(0, Math.min(H - player.h, player.y));
+  }
+
+  function updateAI() {
+    let target   = null;
+    let bestTime = Infinity;
+    balls.forEach(b => {
+      if (b.vx > 0) {
+        const dist = Math.max(0, right.x - (b.x + BALL_SIZE));
+        const t    = dist / b.vx;
+        if (t < bestTime) { bestTime = t; target = b; }
+      }
+    });
+    if (!target && balls.length > 0) {
+      target = balls.reduce((a, b) =>
+        Math.abs(a.x - right.x) < Math.abs(b.x - right.x) ? a : b
+      );
+    }
+    if (!target) return;
+
+    const ballCenter   = target.y + BALL_SIZE / 2;
+    const tgt          = ballCenter + aiTargetNoise;
+    const paddleCenter = right.y + right.h / 2;
+    const diff         = tgt - paddleCenter;
+    if (Math.abs(diff) > aiDeadzone) {
+      right.y += Math.sign(diff) * Math.min(aiSpeed, Math.abs(diff));
+    }
+    right.y = Math.max(0, Math.min(H - right.h, right.y));
+  }
+
+  // ─── Fyzika míčku ─────────────────────────────────────────────────────────
+  function rectsOverlap(ax, ay, aw, ah, bx, by, bw, bh) {
+    return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
+  }
+
+  function bounceOffPaddle(ball, paddle, isLeft) {
+    const paddleCenter = paddle.y + paddle.h / 2;
+    const ballCenter   = ball.y   + BALL_SIZE / 2;
+    let rel = (ballCenter - paddleCenter) / (paddle.h / 2);
+    rel = Math.max(-1, Math.min(1, rel));
+    const angle = rel * MAX_BOUNCE_ANGLE;
+
+    ball.speed = Math.min(ball.speed + BALL_SPEED_INC, BALL_MAX_SPEED);
+    const dir = isLeft ? 1 : -1;
+    ball.vx = Math.cos(angle) * ball.speed * dir;
+    ball.vy = Math.sin(angle) * ball.speed;
+
+    if (isLeft) ball.x = paddle.x + PADDLE_W;
+    else        ball.x = paddle.x - BALL_SIZE;
+
+    lastHitBy     = isLeft ? 'player' : 'right';
+    aiTargetNoise = (Math.random() * 2 - 1) * aiNoiseRange;
+    soundPaddle();
+  }
+
+  function updateBalls() {
+    let pointEnded = false;
+
+    for (let i = balls.length - 1; i >= 0; i--) {
+      const b = balls[i];
+      b.x += b.vx;
+      b.y += b.vy;
+
+      if (b.y <= 0) {
+        b.y = 0; b.vy = -b.vy; soundWall();
+      } else if (b.y + BALL_SIZE >= H) {
+        b.y = H - BALL_SIZE; b.vy = -b.vy; soundWall();
+      }
+
+      if (b.vx < 0 && rectsOverlap(b.x, b.y, BALL_SIZE, BALL_SIZE, player.x, player.y, PADDLE_W, player.h)) {
+        bounceOffPaddle(b, player, true);
+      } else if (b.vx > 0 && rectsOverlap(b.x, b.y, BALL_SIZE, BALL_SIZE, right.x, right.y, PADDLE_W, right.h)) {
+        bounceOffPaddle(b, right, false);
+      }
+
+      if (!pointEnded) {
+        if (b.x + BALL_SIZE < 0) {
+          lastWinner = 'ai'; right.score++;  pointEnded = true;
+        } else if (b.x > W) {
+          lastWinner = 'player'; player.score++; pointEnded = true;
+        }
+      } else if (b.x + BALL_SIZE < 0 || b.x > W) {
+        balls.splice(i, 1);
+      }
+    }
+
+    if (pointEnded) onPointEnd();
+  }
+
+  // ─── Mystery boxy ─────────────────────────────────────────────────────────
+  function trySpawnBox(now) {
+    if (boxes.filter(b => !b.solid).length >= BOX_MAX) return;
+    if (now - pointStartTime   < BOX_FIRST_DELAY)    return;
+    if (now - lastBoxSpawnTime < BOX_SPAWN_INTERVAL) return;
+
+    for (let attempt = 0; attempt < 12; attempt++) {
+      const x = 120 + Math.random() * (W - 240 - BOX_SIZE);
+      const y = 20  + Math.random() * (H - BOX_SIZE - 40);
+      const overlaps = boxes.some(b =>
+        Math.abs(b.x - x) < BOX_SIZE + 40 && Math.abs(b.y - y) < BOX_SIZE + 40
+      );
+      if (!overlaps) {
+        boxes.push({ x, y, img: mysteryBoxImg, spawnTime: now });
+        lastBoxSpawnTime = now;
+        break;
+      }
+    }
+  }
+
+  function removeExpiredBoxes(now) {
+    // Solid boxy expirací nepodléhají — zmizí s koncem bodu
+    boxes = boxes.filter(b => b.solid || now - b.spawnTime < BOX_LIFESPAN);
+  }
+
+  function solidBoxBounce(ball, box) {
+    const bcx = ball.x + BALL_SIZE / 2;
+    const bcy = ball.y + BALL_SIZE / 2;
+    const boxCX = box.x + BOX_SIZE / 2;
+    const boxCY = box.y + BOX_SIZE / 2;
+    const overlapX = (BALL_SIZE + BOX_SIZE) / 2 - Math.abs(bcx - boxCX);
+    const overlapY = (BALL_SIZE + BOX_SIZE) / 2 - Math.abs(bcy - boxCY);
+    if (overlapX < overlapY) {
+      ball.vx  = -ball.vx;
+      ball.x  += Math.sign(bcx - boxCX) * overlapX;
+    } else {
+      ball.vy  = -ball.vy;
+      ball.y  += Math.sign(bcy - boxCY) * overlapY;
+    }
+    soundWall();
+  }
+
+  function checkBoxCollisions() {
+    for (let bi = boxes.length - 1; bi >= 0; bi--) {
+      const box = boxes[bi];
+      if (box.solid) {
+        // Pevná překážka: všechny míčky se odrazí
+        balls.forEach(b => {
+          if (rectsOverlap(b.x, b.y, BALL_SIZE, BALL_SIZE, box.x, box.y, BOX_SIZE, BOX_SIZE)) {
+            solidBoxBounce(b, box);
+          }
+        });
+      } else {
+        // Mystery box: první míček spustí efekt
+        for (let bali = 0; bali < balls.length; bali++) {
+          const b = balls[bali];
+          if (rectsOverlap(b.x, b.y, BALL_SIZE, BALL_SIZE, box.x, box.y, BOX_SIZE, BOX_SIZE)) {
+            const consumed = applyBoxEffect(b, box);
+            if (consumed) boxes.splice(bi, 1);
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  // Vrací true = box se spotřebuje, false = box zůstane (solid efekt)
+  function applyBoxEffect(ball, box) {
+    const cx = box.x + BOX_SIZE / 2;
+    const cy = box.y + BOX_SIZE / 2;
+
+    // Pool efektů – Obrat! nelze dvakrát za sebou
+    const pool = ['speedup', 'split', 'grow', 'shrink', 'solid', 'redirect'];
+    if (lastBoxEffect !== 'reverse') pool.push('reverse');
+    const choice = pool[Math.floor(Math.random() * pool.length)];
+    lastBoxEffect = choice;
+
+    if (choice === 'speedup') {
+      ball.speed = Math.min(ball.speed * 1.15, BALL_MAX_SPEED);
+      const a = Math.atan2(ball.vy, ball.vx);
+      ball.vx = Math.cos(a) * ball.speed;
+      ball.vy = Math.sin(a) * ball.speed;
+      addTextEffect('RYCHLEJI!', cx, cy, '#FFD700');
+      soundSpeedUp();
+      return true;
+
+    } else if (choice === 'reverse') {
+      ball.speed *= 0.7;
+      ball.vx = -ball.vx * 0.7;
+      ball.vy =  ball.vy * 0.7;
+      addTextEffect('OBRAT!', cx, cy, '#FF6666');
+      soundReverse();
+      return true;
+
+    } else if (choice === 'split') {
+      if (balls.length < 3) {
+        const dir        = ball.vx >= 0 ? 1 : -1;
+        const splitAngle = (Math.random() - 0.5) * Math.PI * 0.6;
+        const s          = ball.speed * 0.25;
+        balls.push(makeBall(ball.x, ball.y,
+          Math.cos(splitAngle) * s * dir,
+          Math.sin(splitAngle) * s,
+          s, true));
+      }
+      addTextEffect('ROZDVOJENÍ!', cx, cy, '#7DF9FF');
+      soundSplit();
+      return true;
+
+    } else if (choice === 'grow') {
+      const paddle = lastHitBy === 'right' ? right : player;
+      const MAX_H  = Math.round(H * 0.7);
+      paddle.h = Math.min(Math.round(paddle.h * 1.5), MAX_H);
+      paddle.y = Math.max(0, Math.min(H - paddle.h, paddle.y));
+      paddle.growExpiry = performance.now() + 20000;
+      const label = lastHitBy === 'right' ? 'VĚTŠÍ PLOŠINA →' : '← VĚTŠÍ PLOŠINA';
+      addTextEffect(label, cx, cy, '#88FF88');
+      soundGrow();
+      return true;
+
+    } else if (choice === 'shrink') {
+      const paddle = lastHitBy === 'right' ? right : player;
+      const MIN_H  = 20;
+      paddle.h = Math.max(Math.round(paddle.h * 0.7), MIN_H);
+      paddle.y = Math.max(0, Math.min(H - paddle.h, paddle.y));
+      paddle.growExpiry = performance.now() + 10000;
+      const label = lastHitBy === 'right' ? 'MENŠÍ PLOŠINA →' : '← MENŠÍ PLOŠINA';
+      addTextEffect(label, cx, cy, '#FF8800');
+      soundShrink();
+      return true;
+
+    } else if (choice === 'redirect') {
+      const dir = Math.random() < 0.5 ? 1 : -1;
+      const angle = (Math.random() * 2 - 1) * MAX_BOUNCE_ANGLE;
+      ball.vx = Math.cos(angle) * ball.speed * dir;
+      ball.vy = Math.sin(angle) * ball.speed;
+      addTextEffect('ZMĚNA SMĚRU!', cx, cy, '#CC88FF');
+      soundRedirect();
+      return true;
+
+    } else { // solid
+      box.solid = true;
+      if (Math.abs(ball.vx) >= Math.abs(ball.vy)) {
+        ball.x = ball.vx > 0 ? box.x + BOX_SIZE : box.x - BALL_SIZE;
+      } else {
+        ball.y = ball.vy > 0 ? box.y + BOX_SIZE : box.y - BALL_SIZE;
+      }
+      addTextEffect('PEVNÁ ZEĎ!', cx, cy, '#CCCCCC');
+      soundSolid();
+      return false;
+    }
+  }
+
+  function checkPaddleGrowExpiry(now) {
+    [player, right].forEach(p => {
+      if (p.growExpiry && now >= p.growExpiry) {
+        p.h = PADDLE_H;
+        p.y = Math.max(0, Math.min(H - p.h, p.y));
+        p.growExpiry = null;
+      }
+    });
+  }
+
+  function addTextEffect(text, x, y, color) {
+    textEffects.push({ text, x, y, color, life: 100, maxLife: 100 });
+  }
+
+  function onPointEnd() {
+    soundScore();
+    boxes       = [];
+    textEffects = [];
+    pendingDirX = lastWinner === 'player' ? 1 : -1;
+    initBall();
+    if (player.score >= winScore || right.score >= winScore) {
+      state = STATE.GAMEOVER;
+      setTimeout(() => showEndScreen(player.score > right.score), 400);
+    } else {
+      state = STATE.READY;
+    }
+  }
+
+  // ─── Vykreslení ───────────────────────────────────────────────────────────
+  function drawCenterLine() {
+    ctx.fillStyle = '#fff';
+    const dashH = 14, gap = 10;
+    for (let y = 0; y < H; y += dashH + gap) ctx.fillRect(W / 2 - 2, y, 4, dashH);
+  }
+
+  function drawScore() {
+    ctx.fillStyle    = '#fff';
+    ctx.font         = '48px "Courier New", monospace';
+    ctx.textBaseline = 'top';
+    ctx.textAlign    = 'right';
+    ctx.fillText(String(player.score), W / 2 - 40, 20);
+    ctx.textAlign = 'left';
+    ctx.fillText(String(right.score),  W / 2 + 40, 20);
+  }
+
+  function drawPlayerLabels() {
+    ctx.fillStyle    = 'rgba(255,255,255,0.35)';
+    ctx.font         = '13px "Courier New", monospace';
+    ctx.textBaseline = 'top';
+    if (gameMode === MODE.MULTI) {
+      ctx.textAlign = 'left';
+      ctx.fillText(`HRÁČ 1  ${formatKey(bindings.p1Up)}/${formatKey(bindings.p1Down)}`, player.x, H - 20);
+      ctx.textAlign = 'right';
+      ctx.fillText(`${formatKey(bindings.p2Up)}/${formatKey(bindings.p2Down)}  HRÁČ 2`, right.x + PADDLE_W, H - 20);
+    } else {
+      ctx.textAlign = 'left';
+      ctx.fillText('HRÁČ', player.x, H - 20);
+      ctx.textAlign = 'right';
+      ctx.fillText('PC', right.x + PADDLE_W, H - 20);
+    }
+  }
+
+  function drawMessage(lines) {
+    ctx.fillStyle    = '#fff';
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font         = '28px "Courier New", monospace';
+    const lh     = 36;
+    const startY = H / 2 - ((lines.length - 1) * lh) / 2;
+    lines.forEach((line, i) => ctx.fillText(line, W / 2, startY + i * lh));
+  }
+
+  function drawMenu() {
+    ctx.clearRect(0, 0, W, H);
+    drawCenterLine();
+
+    ctx.fillStyle    = '#fff';
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'middle';
+
+    ctx.font = 'bold 36px "Courier New", monospace';
+    ctx.fillText('PONG', W / 2, H / 2 - 110);
+
+    if (menuPhase === 'mode') {
+      ctx.font = '20px "Courier New", monospace';
+      ctx.fillText('VYBER REŽIM HRY', W / 2, H / 2 - 45);
+
+      ctx.font = '24px "Courier New", monospace';
+      ctx.fillText('[ 1 ]  PROTI POČÍTAČI', W / 2, H / 2 + 5);
+      ctx.fillText('[ 2 ]  MULTIPLAYER',   W / 2, H / 2 + 50);
+      ctx.fillText('[ 3 ]  NASTAVENÍ',     W / 2, H / 2 + 95);
+
+      ctx.globalAlpha = 0.5;
+      ctx.font = '14px "Courier New", monospace';
+      ctx.fillText(
+        `Hráč 1 (vlevo): ${formatKey(bindings.p1Up)} / ${formatKey(bindings.p1Down)}        Hráč 2 (vpravo): ${formatKey(bindings.p2Up)} / ${formatKey(bindings.p2Down)}`,
+        W / 2, H / 2 + 148
+      );
+      ctx.globalAlpha = 1;
+
+    } else if (menuPhase === 'difficulty') {
+      ctx.font = '20px "Courier New", monospace';
+      ctx.fillText('VYBER OBTÍŽNOST', W / 2, H / 2 - 45);
+
+      ctx.font = '24px "Courier New", monospace';
+      ctx.fillText('[ 1 ]  EASY',   W / 2, H / 2 + 5);
+      ctx.fillText('[ 2 ]  MEDIUM', W / 2, H / 2 + 50);
+      ctx.fillText('[ 3 ]  HARD',   W / 2, H / 2 + 95);
+
+    } else {
+      const diffLabel = { easy: 'Easy', medium: 'Medium', hard: 'Hard' }[aiDifficulty] ?? '';
+      const modeLabel = gameMode === MODE.SOLO
+        ? `Proti počítači – ${diffLabel}`
+        : 'Multiplayer';
+      ctx.globalAlpha = 0.55;
+      ctx.font = '16px "Courier New", monospace';
+      ctx.fillText('Režim: ' + modeLabel, W / 2, H / 2 - 50);
+      ctx.globalAlpha = 1;
+
+      ctx.font = '20px "Courier New", monospace';
+      ctx.fillText('VYBER POČET VÝHERNÍCH BODŮ', W / 2, H / 2 - 10);
+
+      ctx.font = '28px "Courier New", monospace';
+      ctx.fillText('1 – 9', W / 2, H / 2 + 55);
+
+      ctx.globalAlpha = 0.5;
+      ctx.font = '15px "Courier New", monospace';
+      ctx.fillText('stiskni libovolné číslo', W / 2, H / 2 + 105);
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  function drawBoxes(now) {
+    boxes.forEach(box => {
+      if (box.solid) {
+        // Pevná překážka – plný bílý blok
+        ctx.fillStyle   = '#fff';
+        ctx.fillRect(box.x, box.y, BOX_SIZE, BOX_SIZE);
+        return;
+      }
+
+      const remaining = BOX_LIFESPAN - (now - box.spawnTime);
+      let alpha = 1;
+      if (remaining < BOX_BLINK_AT) {
+        alpha = 0.25 + 0.75 * Math.abs(Math.sin(now / 160 * Math.PI));
+      }
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      if (box.img.complete && box.img.naturalWidth > 0) {
+        ctx.drawImage(box.img, box.x, box.y, BOX_SIZE, BOX_SIZE);
+      } else {
+        ctx.fillStyle = '#333';
+        ctx.fillRect(box.x, box.y, BOX_SIZE, BOX_SIZE);
+      }
+      ctx.restore();
+    });
+  }
+
+  function drawTextEffects() {
+    textEffects.forEach(e => {
+      const progress = 1 - e.life / e.maxLife;
+      const alpha    = e.life < 25 ? e.life / 25 : 1;
+      const y        = e.y - progress * 55;
+      ctx.save();
+      ctx.globalAlpha  = alpha;
+      ctx.shadowColor  = '#000';
+      ctx.shadowBlur   = 10;
+      ctx.fillStyle    = e.color;
+      ctx.font         = 'bold 28px "Courier New", monospace';
+      ctx.textAlign    = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(e.text, e.x, y);
+      ctx.restore();
+    });
+  }
+
+  function draw(now) {
+    if (state === STATE.MENU) {
+      drawMenu();
+      return;
+    }
+
+    ctx.clearRect(0, 0, W, H);
+    drawCenterLine();
+    drawScore();
+    drawPlayerLabels();
+
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(player.x, player.y, PADDLE_W, player.h);
+    ctx.fillRect(right.x,  right.y,  PADDLE_W, right.h);
+
+    if (state === STATE.PLAYING || state === STATE.READY) {
+      ctx.fillStyle = '#fff';
+      balls.forEach(b => ctx.fillRect(b.x, b.y, BALL_SIZE, BALL_SIZE));
+
+      if (state === STATE.PLAYING) {
+        drawBoxes(now);
+        drawTextEffects();
+      } else {
+        drawMessage(['STISKNI MEZERNÍK PRO START']);
+        // Blikající šipka ukazující směr servu
+        const arrow = pendingDirX > 0 ? '→' : '←';
+        const blink = 0.45 + 0.55 * Math.abs(Math.sin(now / 380));
+        ctx.save();
+        ctx.globalAlpha  = blink;
+        ctx.fillStyle    = '#fff';
+        ctx.font         = 'bold 52px "Courier New", monospace';
+        ctx.textAlign    = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(arrow, W / 2, H / 2 + 52);
+        ctx.restore();
+      }
+    }
+  }
+
+  // ─── Hlavní smyčka ────────────────────────────────────────────────────────
+  function loop(now) {
+    if (state === STATE.PLAYING) {
+      updatePlayer1();
+      if (gameMode === MODE.MULTI) updatePlayer2();
+      else                         updateAI();
+      updateBalls();
+      trySpawnBox(now);
+      removeExpiredBoxes(now);
+      checkBoxCollisions();
+      checkPaddleGrowExpiry(now);
+      textEffects.forEach(e => e.life--);
+      textEffects = textEffects.filter(e => e.life > 0);
+    } else if (state === STATE.READY) {
+      updatePlayer1();
+      if (gameMode === MODE.MULTI) updatePlayer2();
+    }
+    draw(now);
+    requestAnimationFrame(loop);
+  }
+
+  // ─── Start ────────────────────────────────────────────────────────────────
+  initBall();
+  updateHint();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

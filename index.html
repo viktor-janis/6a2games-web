@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>6&amp;2 Games</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <style>
+    *,
+    *::before,
+    *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      height: 100%;
+      width: 100%;
+    }
+
+    body {
+      font-family: 'Press Start 2P', 'Courier New', monospace;
+      color: #fff;
+      background:
+        radial-gradient(ellipse at center, #1a0033 0%, #050010 70%, #000 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: clamp(40px, 8vh, 90px);
+      overflow: hidden;
+      position: relative;
+      padding: 24px;
+    }
+
+    /* CRT scanlines */
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        rgba(0, 0, 0, 0) 0px,
+        rgba(0, 0, 0, 0) 2px,
+        rgba(0, 0, 0, 0.28) 3px,
+        rgba(0, 0, 0, 0.28) 4px
+      );
+      pointer-events: none;
+      z-index: 100;
+    }
+
+    /* CRT flicker */
+    body::after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background: rgba(120, 60, 180, 0.04);
+      pointer-events: none;
+      z-index: 101;
+      animation: flicker 0.18s infinite;
+    }
+
+    @keyframes flicker {
+      0%   { opacity: 0.28; }
+      20%  { opacity: 0.18; }
+      40%  { opacity: 0.85; }
+      55%  { opacity: 0.10; }
+      70%  { opacity: 0.66; }
+      85%  { opacity: 0.42; }
+      100% { opacity: 0.24; }
+    }
+
+    h1 {
+      font-size: clamp(1.8rem, 6vw, 4.5rem);
+      letter-spacing: 0.12em;
+      text-align: center;
+      color: #ff2bd6;
+      text-shadow:
+        0 0 6px #ff2bd6,
+        0 0 14px #ff2bd6,
+        0 0 28px #ff2bd6,
+        0 0 60px #ff00aa;
+      animation: titlePulse 2.4s ease-in-out infinite;
+      position: relative;
+      z-index: 1;
+    }
+
+    h1 .amp {
+      color: #ffe600;
+      text-shadow:
+        0 0 6px #ffe600,
+        0 0 14px #ffe600,
+        0 0 28px #ffaa00;
+    }
+
+    @keyframes titlePulse {
+      0%, 100% {
+        text-shadow:
+          0 0 6px #ff2bd6,
+          0 0 14px #ff2bd6,
+          0 0 28px #ff2bd6,
+          0 0 60px #ff00aa;
+      }
+      50% {
+        text-shadow:
+          0 0 10px #ff2bd6,
+          0 0 22px #ff2bd6,
+          0 0 44px #ff2bd6,
+          0 0 90px #ff00aa;
+      }
+    }
+
+    nav {
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .menu-item {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 18px;
+      min-width: clamp(260px, 40vw, 440px);
+      font-family: inherit;
+      font-size: clamp(0.85rem, 1.8vw, 1.3rem);
+      letter-spacing: 0.14em;
+      color: #00ffff;
+      text-decoration: none;
+      padding: 18px 28px;
+      border: 3px solid #00ffff;
+      background: rgba(0, 255, 255, 0.04);
+      text-shadow: 0 0 8px #00ffff;
+      box-shadow:
+        0 0 8px #00ffff,
+        0 0 22px rgba(0, 255, 255, 0.35),
+        inset 0 0 14px rgba(0, 255, 255, 0.15);
+      transition:
+        color 0.15s ease,
+        background 0.15s ease,
+        box-shadow 0.15s ease,
+        transform 0.15s ease;
+      position: relative;
+      cursor: pointer;
+    }
+
+    .menu-item .arrow {
+      display: inline-block;
+      width: 1em;
+      opacity: 0;
+      transform: translateX(-6px);
+      transition: opacity 0.15s ease, transform 0.15s ease;
+    }
+
+    .menu-item:hover,
+    .menu-item:focus-visible {
+      color: #050010;
+      background: #00ffff;
+      text-shadow: none;
+      outline: none;
+      box-shadow:
+        0 0 14px #00ffff,
+        0 0 40px #00ffff,
+        0 0 80px rgba(0, 255, 255, 0.6),
+        inset 0 0 18px rgba(255, 255, 255, 0.4);
+      transform: scale(1.04);
+    }
+
+    .menu-item:hover .arrow,
+    .menu-item:focus-visible .arrow {
+      opacity: 1;
+      transform: translateX(0);
+      animation: arrowBlink 0.6s steps(1) infinite;
+    }
+
+    @keyframes arrowBlink {
+      50% { opacity: 0; }
+    }
+
+    .menu-item:active {
+      transform: scale(0.98);
+    }
+  </style>
+</head>
+<body>
+  <h1>6<span class="amp">&amp;</span>2 GAMES</h1>
+  <nav>
+    <a class="menu-item" href="games/pong/index.html">
+      <span class="arrow">&#9658;</span>
+      <span>6&amp;2 PONG</span>
+    </a>
+  </nav>
+</body>
+</html>
