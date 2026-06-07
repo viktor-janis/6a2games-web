@@ -13,12 +13,21 @@ PS.Weapon = class Weapon {
     this.id = id;
     this.def = PS.ATTACKS[id];
     this.level = 1;
+    this.perkLevels = {}; // perky útoku (PS.WEAPON_PERKS) — druhá osa vylepšení
     this.acc = 0;        // akumulátor cooldownu
     this.tickAcc = 0;    // akumulátor tiků (aura, proud)
     this.streamUntil = 0;
     this.streamDir = 0;
     const init = this['init_' + this.def.archetype];
     if (init) init.call(this);
+  }
+
+  // úroveň perku (0 = nevlastněn)
+  perk(pid) { return this.perkLevels[pid] || 0; }
+
+  applyPerk(pid) {
+    this.perkLevels[pid] = (this.perkLevels[pid] || 0) + 1;
+    if (this.id === 'panaky' && pid === 'panak') this.addOrbiter();
   }
 
   // DMG včetně levelu zbraně
@@ -40,7 +49,7 @@ PS.Weapon = class Weapon {
     if (this.acc >= this.cd() && now >= this.streamUntil) {
       // aktivace čistě na interval (VS styl) — i naprázdno
       this.acc = 0;
-      this.streamUntil = now + def.duration * 1000;
+      this.streamUntil = now + (def.duration + 0.5 * this.perk('davka')) * 1000;
       this.tickAcc = def.tick; // první tik okamžitě
     }
     if (now < this.streamUntil) {
@@ -49,7 +58,7 @@ PS.Weapon = class Weapon {
         this.tickAcc = 0;
         this.streamDir = s.facingDir(); // proud míří, kam je hrdina otočený
         const range = this.area(def.range);
-        const half = Phaser.Math.DegToRad(def.angle / 2);
+        const half = Phaser.Math.DegToRad((def.angle + 15 * this.perk('kuzel')) / 2);
         s.enemiesInCone(this.streamDir, half, range).forEach(e =>
           s.dealDamage(e, this.dmg(), { dot: { dps: def.dot.dps, dur: def.dot.dur } }));
         s.fxCone(this.streamDir, half, range, 0x39ff14);
@@ -62,11 +71,21 @@ PS.Weapon = class Weapon {
     this.acc += dt;
     if (this.acc < this.cd()) return;
     this.acc = 0;
+    const s = this.scene;
+
+    this.fireBeam(s.aimDir()); // střílí vždy — i naprázdno
+    if (this.perk('dvojity')) {
+      // druhý proud na druhého nejbližšího nepřítele
+      const t1 = s.nearestEnemy(560);
+      const t2 = t1 && s.nearestEnemyTo(s.player.x, s.player.y, 560, new Set([t1]));
+      if (t2) this.fireBeam(Phaser.Math.Angle.Between(s.player.x, s.player.y, t2.x, t2.y));
+    }
+  }
+  fireBeam(dir) {
     const s = this.scene, def = this.def;
     const range = this.area(def.range);
-
-    const dir = s.aimDir(); // střílí vždy — i naprázdno
-    const targets = s.enemiesInBeam(dir, range, def.width).slice(0, def.pierce);
+    const pierce = def.pierce + 2 * this.perk('pierce');
+    const targets = s.enemiesInBeam(dir, range, def.width).slice(0, pierce);
     targets.forEach(e => s.dealDamage(e, this.dmg()));
 
     // kaluž na konci zásahu (poslední zasažený, jinak konec paprsku)
@@ -90,7 +109,8 @@ PS.Weapon = class Weapon {
     const s = this.scene, def = this.def, now = s.time.now;
 
     this.tags = this.tags.filter(z => z.until > now);
-    if (this.tags.length >= def.maxZones) s.removeZone(this.tags.shift());
+    const maxZones = def.maxZones + this.perk('tag');
+    if (this.tags.length >= maxZones) s.removeZone(this.tags.shift());
 
     const tints = [0xff2bd6, 0x00ffff, 0xb44cff];
     this.tags.push(s.addZone({
@@ -107,20 +127,25 @@ PS.Weapon = class Weapon {
     this.acc = 0;
     const s = this.scene, def = this.def;
 
-    // pevný vzor (jako sekera ve VS): vždy pevná vzdálenost ve směru pohledu
+    // pevný vzor (jako sekera ve VS): vždy pevná vzdálenost ve směru pohledu;
+    // perk „hod navíc" přidává lahváče ve vějíři ±24°
     const dir = s.facingDir();
     const dist = this.area(def.range);
-    const tx = s.player.x + Math.cos(dir) * dist;
-    const ty = s.player.y + Math.sin(dir) * dist;
-    const img = s.add.image(s.player.x, s.player.y, 'proj-lahvac').setDepth(9);
-    s.tweens.add({
-      targets: img, x: tx, y: ty,
-      duration: 430, ease: 'Linear',
-      onUpdate: (tw) => {
-        img.rotation += 0.25;
-        img.setScale(1 + Math.sin(tw.progress * Math.PI) * 0.9); // oblouk
-      },
-      onComplete: () => { img.destroy(); this.lobImpact(tx, ty); },
+    const offsets = [0, 0.42, -0.42].slice(0, 1 + this.perk('runda'));
+    offsets.forEach(off => {
+      const a = dir + off;
+      const tx = s.player.x + Math.cos(a) * dist;
+      const ty = s.player.y + Math.sin(a) * dist;
+      const img = s.add.image(s.player.x, s.player.y, 'proj-lahvac').setDepth(9);
+      s.tweens.add({
+        targets: img, x: tx, y: ty,
+        duration: 430, ease: 'Linear',
+        onUpdate: (tw) => {
+          img.rotation += 0.25;
+          img.setScale(1 + Math.sin(tw.progress * Math.PI) * 0.9); // oblouk
+        },
+        onComplete: () => { img.destroy(); this.lobImpact(tx, ty); },
+      });
     });
   }
   lobImpact(x, y) {
@@ -149,10 +174,19 @@ PS.Weapon = class Weapon {
     // letí na nejbližšího (bez cíle rovně do směru pohledu)
     // a po zásahu se odráží na další nepřátele (viz GameScene.projectileHit)
     const t = s.nearestEnemy(this.area(def.range));
+    this.spitVajgl(t, s.facingDir());
+    if (this.perk('dvojite')) {
+      // druhý vajgl na jiný cíl (bez cíle s rozptylem do strany)
+      const t2 = t && s.nearestEnemyTo(s.player.x, s.player.y, this.area(def.range), new Set([t]));
+      this.spitVajgl(t2, s.facingDir() + 0.45);
+    }
+  }
+  spitVajgl(target, fallbackDir) {
+    const s = this.scene, def = this.def;
     s.fireProjectile({
-      texture: 'proj-vajgl', target: t, dir: s.facingDir(), speed: 300, life: 1.2,
-      dmg: this.dmg(), pierce: 0, homing: !!t,
-      bounces: def.bounces, bounceRange: this.area(def.bounceRange),
+      texture: 'proj-vajgl', target, dir: fallbackDir, speed: 300, life: 1.2,
+      dmg: this.dmg(), pierce: 0, homing: !!target,
+      bounces: def.bounces + this.perk('odraz'), bounceRange: this.area(def.bounceRange),
       effects: { slow: { pct: def.slow.pct, dur: def.slow.dur } },
     });
   }
@@ -162,15 +196,20 @@ PS.Weapon = class Weapon {
     this.acc += dt;
     if (this.acc < this.cd()) return;
     this.acc = 0;
-    const s = this.scene, def = this.def;
-    const range = this.area(def.range);
+    const s = this.scene;
 
     const dir = s.facingDir(); // máchne kam je hrdina otočený — i naprázdno
-    const half = Phaser.Math.DegToRad(def.angle / 2);
+    this.doSweep(dir);
+    if (this.perk('dozadu')) this.doSweep(dir + Math.PI); // kryje i záda
+  }
+  doSweep(dir) {
+    const s = this.scene, def = this.def;
+    const range = this.area(def.range);
+    const half = Phaser.Math.DegToRad((def.angle + 20 * this.perk('sirka')) / 2);
     s.enemiesInCone(dir, half, range).forEach(e =>
       s.dealDamage(e, this.dmg(), { knockback: def.knockback }));
 
-    // kaluž piva před hrdinou
+    // kaluž piva ve směru máchnutí
     s.addZone({
       x: s.player.x + Math.cos(dir) * range * 0.6,
       y: s.player.y + Math.sin(dir) * range * 0.6,
@@ -191,7 +230,7 @@ PS.Weapon = class Weapon {
     this.circle.setPosition(s.player.x, s.player.y).setScale(r * 2 / 128);
 
     this.tickAcc += dt;
-    if (this.tickAcc < def.tick) return;
+    if (this.tickAcc < def.tick - 0.1 * this.perk('hustsi')) return;
     this.tickAcc = 0;
     s.enemiesInCircle(s.player.x, s.player.y, r).forEach(e =>
       s.dealDamage(e, this.dmg(), { slow: { pct: def.slow, dur: 0.6 }, noFlash: true }));
@@ -201,14 +240,17 @@ PS.Weapon = class Weapon {
   init_orbit() {
     this.angle = 0;
     this.orbiters = [];
-    for (let i = 0; i < this.def.count; i++) {
-      this.orbiters.push(this.scene.add.image(0, 0, 'panak').setDepth(9));
-    }
+    for (let i = 0; i < this.def.count; i++) this.addOrbiter();
+  }
+  addOrbiter() {
+    if (!this.orbiters) return; // perk aplikovaný před init (nemělo by nastat)
+    this.orbiters.push(this.scene.add.image(0, 0, 'panak').setDepth(9));
   }
   tick_orbit(dt) {
     const s = this.scene, def = this.def, now = s.time.now;
-    // rychlejší cooldowny = rychlejší oběh
-    this.angle += dt * Math.PI * 2 / (def.period * s.stats.cdMult);
+    // rychlejší cooldowny = rychlejší oběh; perk „rychlejší oběh" −20 % periody
+    const period = def.period * (1 - 0.2 * this.perk('rotace'));
+    this.angle += dt * Math.PI * 2 / (period * s.stats.cdMult);
     const r = this.area(def.r);
     const step = Math.PI * 2 / this.orbiters.length;
 
@@ -237,8 +279,9 @@ PS.Weapon = class Weapon {
 
     const dir = s.aimDir(); // švihne po nejbližším — i naprázdno
     const half = Phaser.Math.DegToRad(def.angle / 2);
-    s.enemiesInCone(dir, half, range).slice(0, def.targets).forEach(e =>
-      s.dealDamage(e, this.dmg(), { knockback: def.knockback, stun: def.stun }));
+    const stun = { chance: def.stun.chance + 0.10 * this.perk('stun'), dur: def.stun.dur };
+    s.enemiesInCone(dir, half, range).slice(0, def.targets + this.perk('cile')).forEach(e =>
+      s.dealDamage(e, this.dmg(), { knockback: def.knockback, stun }));
 
     // švih listem
     const leaf = s.add.image(

@@ -27,14 +27,14 @@ PS.Spawner = class Spawner {
     return Math.floor(this.elapsed / PS.BALANCE.tierSeconds) + 1;
   }
 
-  // interval mezi vlnami — pomalý rozjezd, ke 13. minutě maximální tlak
+  // interval mezi vlnami — akce už od začátku, ke 13. minutě maximální tlak
   interval() {
-    return Phaser.Math.Clamp(2.0 - this.tier() * 0.12 - this.elapsed / 900, 0.4, 2.0);
+    return Phaser.Math.Clamp(1.6 - this.tier() * 0.10 - this.elapsed / 950, 0.4, 1.6);
   }
 
-  // velikost vlny — mírný růst v mid-game, strmý až v pozdních tierech
+  // velikost vlny — základ 2 (první minuty nesmí být nuda), růst s tierem a časem
   waveSize() {
-    return 1 + Math.floor(this.tier() * 0.6) + Math.floor(this.elapsed / 240);
+    return 2 + Math.floor(this.tier() * 0.5) + Math.floor(this.elapsed / 270);
   }
 
   update(dt) {

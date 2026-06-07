@@ -166,6 +166,46 @@ PS.ATTACKS = {
   },
 };
 
+// ---------- Perky útoků — druhá osa vylepšování vedle „+25 % DMG" ----------
+// Každý vlastněný útok nabízí při level-upu kromě DMG i perk(y) s vlastním
+// malým stropem (cap). Důraz na počty: projektily/odrazy/cíle/zóny navíc.
+// Efekty čte PS.Weapon přes this.perk(id) — viz weapons.js.
+PS.WEAPON_PERKS = {
+  bliti: [
+    { id: 'davka', name: 'větší dávka',  cap: 2, desc: 'Proud blití trvá o 0,5 s déle — víc tiků za aktivaci.' },
+    { id: 'kuzel', name: 'širší kužel',  cap: 2, desc: 'Kužel blití je o 15° širší.' },
+  ],
+  chcani: [
+    { id: 'pierce',  name: 'silnější proud', cap: 2, desc: 'Paprsek probodne o 2 nepřátele víc.' },
+    { id: 'dvojity', name: 'dvojitý proud',  cap: 1, desc: 'Zasáhne i druhého nejbližšího nepřítele.' },
+  ],
+  tagovani: [
+    { id: 'tag', name: 'další tag', cap: 2, desc: 'Na zemi může ležet o 1 tag víc.' },
+  ],
+  lahvac: [
+    { id: 'runda', name: 'hod navíc', cap: 2, desc: 'Hází o 1 lahváč víc (vějíř do stran).' },
+  ],
+  vajgly: [
+    { id: 'odraz',   name: 'lepivý vajgl',     cap: 2, desc: 'Vajgl se odrazí o 1 nepřítele dál.' },
+    { id: 'dvojite', name: 'dvojité plivnutí', cap: 1, desc: 'Plivne 2 vajgly najednou, každý na jiný cíl.' },
+  ],
+  pivo: [
+    { id: 'dozadu', name: 'máchnutí dozadu', cap: 1, desc: 'Druhé máchnutí pokryje i prostor za hrdinou.' },
+    { id: 'sirka',  name: 'širší oblouk',    cap: 2, desc: 'Oblouk máchnutí je o 20° širší.' },
+  ],
+  dym: [
+    { id: 'hustsi', name: 'hustší dým', cap: 2, desc: 'Dým tiká o 0,1 s rychleji.' },
+  ],
+  panaky: [
+    { id: 'panak',  name: 'další panák',    cap: 2, desc: 'Přidá 1 orbitující panák.' },
+    { id: 'rotace', name: 'rychlejší oběh', cap: 1, desc: 'Panáky obíhají o 20 % rychleji.' },
+  ],
+  list: [
+    { id: 'cile', name: 'víc plácanců',      cap: 2, desc: 'Facka zasáhne o 1 cíl víc.' },
+    { id: 'stun', name: 'jistější plácnutí', cap: 1, desc: 'Šance na omráčení +10 %.' },
+  ],
+};
+
 // ---------- Upgrady (list „Upgrady") — pasivky při level-upu ----------
 PS.UPGRADES = [
   { id: 'odpocinek',  name: 'odpočinek',           desc: 'navýšení max HP o 20 %',                              effect: { type: 'maxHp', value: 0.20 } },
@@ -232,13 +272,15 @@ PS.BALANCE = {
   bossHp:  (B) => 90 * B,
   bossDmg: (B) => 8 + 2 * B,
 
-  // Časová osa obtížnosti: nový tier každých ~85 s => tier ~10 ve 13. minutě
-  // (zpomaleno z 75 s — druhá část kompenzace pomalejšího levelování)
-  tierSeconds: 85,
+  // Časová osa obtížnosti: nový tier každých ~70 s => tier ~12 ve 13. minutě
+  // (svižnější tempo — hra se ztěžuje rychleji, bossové à ~5,8 min)
+  tierSeconds: 70,
 
-  // XP potřebné na level N — VS styl: výrazně pomalejší než dřív (~1,8–2×),
-  // prvních pár levelů naskočí rychle, pak každý level znatelně déle
-  xpForLevel: (n) => 8 + (n - 1) * 14 + Math.floor(Math.pow(Math.max(0, n - 8), 1.6)) * 5,
+  // XP potřebné na level N — start jako dřív (8, 22), ale přírůstek roste
+  // s KAŽDÝM levelem (o +8 víc než předchozí: 14, 22, 30, 38…) => kvadratický
+  // růst. Vyvažuje vyšší příjem XP z hustšího spawnu — tempo levelování klesá
+  // celou hru a nikdy se „nerozjede" (VS styl).
+  xpForLevel: (n) => 8 + 10 * (n - 1) + 4 * (n - 1) * (n - 1),
 
   // Level-up volby
   maxWeapons: 6,          // max útoků na hrdinu (jako VS)
@@ -264,10 +306,10 @@ PS.BALANCE = {
   powerupIntervalMin: 60,
   powerupIntervalMax: 90,
 
-  // Runda panclů — velmi vzácný „treasure" (VS styl): průměrně 1 za ~10 minut.
+  // Runda panclů — vzácný „treasure" (VS styl): průměrně 1 za ~5 minut.
   // Zůstává na mapě, dokud ji hrdina nesebere (max 1 zároveň); HUD šipka vede k ní.
-  rundaIntervalMin: 480,             // s
-  rundaIntervalMax: 720,             // s
+  rundaIntervalMin: 240,             // s
+  rundaIntervalMax: 360,             // s
   rundaSpawnMin: 800,                // spawn vzdálenost od hrdiny (vždy za okrajem obrazovky)
   rundaSpawnMax: 1300,
   rundaKeys:     { min: 2, max: 4 }, // časově omezené klíče (náhodné, bez duplicit)

@@ -44,6 +44,16 @@ window.LevelUpScene = class LevelUpScene extends Phaser.Scene {
         desc: `Poškození +25 %\n(LV ${w.level} > ${w.level + 1})`,
       };
     }
+    if (choice.type === 'weaponPerk') {
+      const w = g.weapons.find(x => x.id === choice.id);
+      const p = PS.WEAPON_PERKS[choice.id].find(x => x.id === choice.perkId);
+      const lvl = w.perk(p.id);
+      return {
+        head: 'PERK ÚTOKU', color: PS.COLORS.green,
+        name: `${w.def.name} — ${p.name}`,
+        desc: p.desc + (p.cap > 1 ? `\n(LV ${lvl} > ${lvl + 1})` : ''),
+      };
+    }
     const u = PS.UPGRADES.find(x => x.id === choice.id);
     const lvl = g.passiveLevels[u.id] || 0;
     return {

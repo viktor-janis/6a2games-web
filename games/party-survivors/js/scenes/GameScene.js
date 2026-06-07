@@ -65,6 +65,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
     this.facing = { x: 1, y: 0 }; // poslední směr pohybu — fallback míření útoků
     this.bossFight = null;    // aktivní boss aréna: { boss, cx, cy, r }
     this.arenaFx = null;      // vizuální okraj arény
+    this.ringFormUntil = 0;   // sprint nepřátel při formování ringu
     this.runda = null;        // Runda panclů na mapě: { x, y, img, glow, tween }
     this.rundaOpen = false;   // otevřený reveal overlay (RundaScene)
 
@@ -198,15 +199,36 @@ window.GameScene = class GameScene extends Phaser.Scene {
       if (!e || !e.active) return;
       if (frozen || now < (e.stunUntil || 0)) { e.setVelocity(0, 0); return; }
       if (e.ringWall) {
-        // zeď ringu: doběhnout na svůj slot a stát (kontaktní damage zůstává)
-        const dx = e.ringX - e.x, dy = e.ringY - e.y;
-        const d = Math.hypot(dx, dy);
-        if (d > 6) {
-          const sp = Math.max(e.speed, 90); // ať se ring uzavře svižně
-          e.setVelocity(dx / d * sp, dy / d * sp);
-        } else {
-          e.setVelocity(0, 0);
+        // Zeď ringu — formace VŽDY zvenku, nikdy přes vnitřek arény:
+        //  1) kdo je uvnitř kruhu, nejkratší cestou (radiálně) rychle ustoupí ven
+        //  2) po obvodu (vně kruhu) dojde ke svému slotu
+        // Při příchodu bosse krátkodobý sprint (ringFormUntil) — neporušuje
+        // pravidlo „hrdina nejrychlejší": nepronásledují, jen se řadí.
+        const atX = e.ringX - e.x, atY = e.ringY - e.y;
+        const atD = Math.hypot(atX, atY);
+        if (atD <= 6) { e.setVelocity(0, 0); e.setFlipX(px < e.x); return; }
+        const sp = now < this.ringFormUntil
+          ? Math.max(170, e.speed * 1.6)
+          : Math.max(e.speed, 90);
+        let dirX = atX / atD, dirY = atY / atD; // fallback: přímo na slot
+        const bf = this.bossFight;
+        if (bf) {
+          const dxC = e.x - bf.cx, dyC = e.y - bf.cy;
+          const dC = Math.hypot(dxC, dyC) || 1;
+          const diff = Phaser.Math.Angle.Wrap(e.ringAngle - Math.atan2(dyC, dxC));
+          if (dC < bf.r - 8) {
+            // uvnitř arény → radiálně ven na okraj
+            dirX = dxC / dC; dirY = dyC / dC;
+          } else if (Math.abs(diff) > 0.12) {
+            // obíhat vně kruhu směrem ke slotu (waypoint kus po obvodu)
+            const stepA = Math.atan2(dyC, dxC) + Phaser.Math.Clamp(diff, -0.5, 0.5);
+            const wx = bf.cx + Math.cos(stepA) * (bf.r + 10) - e.x;
+            const wy = bf.cy + Math.sin(stepA) * (bf.r + 10) - e.y;
+            const wd = Math.hypot(wx, wy) || 1;
+            dirX = wx / wd; dirY = wy / wd;
+          }
         }
+        e.setVelocity(dirX * sp, dirY * sp);
         e.setFlipX(px < e.x); // kouká do arény na hrdinu
         return;
       }
@@ -550,6 +572,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
   startBossFight(boss, cx, cy) {
     const r = PS.BALANCE.arenaRadius;
     this.bossFight = { boss, cx, cy, r };
+    this.ringFormUntil = this.time.now + 8000; // sprint: ring se uzavře rychle
 
     // neonový okraj arény
     this.arenaFx = this.add.graphics().setDepth(2);
@@ -599,21 +622,30 @@ window.GameScene = class GameScene extends Phaser.Scene {
   ringify(e, angle) {
     const { cx, cy, r } = this.bossFight;
     e.ringWall = true;
+    e.ringAngle = angle; // pro obíhání po obvodu (formace zvenku)
     e.ringX = cx + Math.cos(angle) * r;
     e.ringY = cy + Math.sin(angle) * r;
     // zeď je nezranitelná — stavové efekty z předchozího boje pryč
     e.slowUntil = 0; e.dotUntil = 0; e.kbUntil = 0; e.stunUntil = 0;
   }
 
-  // hrdina nemůže ring prorazit: radiální složka pohybu se ořízne, tangenciální
-  // projde — klouzání podél zdi funguje přirozeně (clamp běží každý frame)
+  // hrdina nemůže ring prorazit: vrátí se kousek DOVNITŘ hranice (ne přesně
+  // na ni — jinak floating-point drží hráče "venku" a klamp mu každý frame
+  // nuluje rychlost = trvalé zamrznutí, viz bug s vlnou Rohonyho) a z rychlosti
+  // se odřízne jen radiální složka ven — klouzání podél zdi zůstává
   clampToArena() {
     const { cx, cy, r } = this.bossFight;
     const dx = this.player.x - cx, dy = this.player.y - cy;
-    const d = Math.hypot(dx, dy);
+    const d = Math.hypot(dx, dy) || 1;
     const maxD = r - 24; // těsně u zdi — kontaktní damage od ringu funguje
     if (d <= maxD) return;
-    this.player.body.reset(cx + dx / d * maxD, cy + dy / d * maxD);
+    const nx = dx / d, ny = dy / d;
+    const v = this.player.body.velocity;
+    const radial = v.x * nx + v.y * ny; // složka rychlosti směrem ven
+    const tvx = radial > 0 ? v.x - radial * nx : v.x;
+    const tvy = radial > 0 ? v.y - radial * ny : v.y;
+    this.player.body.reset(cx + nx * (maxD - 0.5), cy + ny * (maxD - 0.5));
+    this.player.setVelocity(tvx, tvy);
   }
 
   // boss poražen — ring se rozpustí a dav se vrhne na hrdinu
@@ -935,6 +967,12 @@ window.GameScene = class GameScene extends Phaser.Scene {
         choice: { type: 'weaponUp', id: w.id }, name: w.def.name,
         desc: `Poškození +25 % (LV ${w.level} > ${w.level + 1})`, color: PS.COLORS.yellow,
       });
+      (PS.WEAPON_PERKS[w.id] || []).forEach(p => {
+        if (w.perk(p.id) < p.cap) pool.push({
+          choice: { type: 'weaponPerk', id: w.id, perkId: p.id },
+          name: `${w.def.name} — ${p.name}`, desc: p.desc, color: PS.COLORS.green,
+        });
+      });
     });
     PS.UPGRADES.forEach(u => {
       if ((this.passiveLevels[u.id] || 0) < B.passiveMaxLevel) pool.push({
@@ -980,6 +1018,11 @@ window.GameScene = class GameScene extends Phaser.Scene {
     }
     this.weapons.forEach(w => {
       if (w.level < PS.BALANCE.weaponMaxLevel) pool.push({ type: 'weaponUp', id: w.id, weight: wUp });
+      // perky útoku (počty projektilů/odrazů/cílů…) — stejná váha jako DMG,
+      // takže damage z nabídky nikdy nezmizí, jen přibyla druhá osa
+      (PS.WEAPON_PERKS[w.id] || []).forEach(p => {
+        if (w.perk(p.id) < p.cap) pool.push({ type: 'weaponPerk', id: w.id, perkId: p.id, weight: wUp });
+      });
     });
     PS.UPGRADES.forEach(u => {
       if ((this.passiveLevels[u.id] || 0) < PS.BALANCE.passiveMaxLevel) {
@@ -1005,6 +1048,8 @@ window.GameScene = class GameScene extends Phaser.Scene {
       this.weapons.push(new PS.Weapon(this, c.id));
     } else if (c.type === 'weaponUp') {
       this.weapons.find(w => w.id === c.id).level++;
+    } else if (c.type === 'weaponPerk') {
+      this.weapons.find(w => w.id === c.id).applyPerk(c.perkId);
     } else if (c.type === 'passive') {
       this.passiveLevels[c.id] = (this.passiveLevels[c.id] || 0) + 1;
       this.applyPassive(PS.UPGRADES.find(u => u.id === c.id).effect);
