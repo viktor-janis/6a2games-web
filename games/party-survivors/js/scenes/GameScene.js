@@ -127,7 +127,9 @@ window.GameScene = class GameScene extends Phaser.Scene {
   update(_time, delta) {
     if (this.over) return;
     const dt = delta / 1000;
-    this.elapsed += dt;
+    // skóre (čas přežití) se během boss fightu zastaví — HUD ukazuje
+    // „PROBÍHÁ BOSS FIGHT"; po poražení bosse zase naskočí
+    if (!this.bossFight) this.elapsed += dt;
 
     this.movePlayer();
     if (this.bossFight) this.clampToArena(); // ring nelze prorazit
@@ -572,7 +574,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
   startBossFight(boss, cx, cy) {
     const r = PS.BALANCE.arenaRadius;
     this.bossFight = { boss, cx, cy, r };
-    this.ringFormUntil = this.time.now + 8000; // sprint: ring se uzavře rychle
+    this.ringFormUntil = this.time.now + 11000; // sprint: ring se uzavře rychle (větší poloměr = delší cesty)
 
     // neonový okraj arény
     this.arenaFx = this.add.graphics().setDepth(2);

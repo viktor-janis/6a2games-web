@@ -20,6 +20,9 @@ window.HUDScene = class HUDScene extends Phaser.Scene {
     // ---------- časomíra (hlavní skóre) ----------
     this.timeText = PS.UI.text(this, W / 2, 44, '00:00', 26, '#ffffff');
     this.timeText.setShadow(0, 0, '#000000', 6, true, true);
+    // štítek zmrazené časomíry během souboje s bossem
+    this.bossFightLabel = PS.UI.text(this, W / 2, 64, 'PROBÍHÁ BOSS FIGHT', 9, PS.UI.hex(PS.COLORS.red))
+      .setVisible(false);
 
     // ---------- HP bar vlevo nahoře ----------
     this.add.rectangle(14, 36, 240, 18, 0x111133, 0.85)
@@ -116,6 +119,15 @@ window.HUDScene = class HUDScene extends Phaser.Scene {
     this.xpBar.scaleX = Phaser.Math.Clamp(g.xp / g.xpNext, 0, 1);
     this.levelText.setText('LVL ' + g.level);
     this.timeText.setText(PS.UI.fmtTime(g.elapsed));
+    // boss fight: časomíra stojí (GameScene elapsed se nepřičítá) + pulzující štítek
+    if (g.bossFight) {
+      this.bossFightLabel.setVisible(true)
+        .setAlpha(0.55 + 0.45 * Math.sin(this.time.now / 200));
+      this.timeText.setColor('#ff8888');
+    } else {
+      this.bossFightLabel.setVisible(false);
+      this.timeText.setColor('#ffffff');
+    }
     const hpFrac = Phaser.Math.Clamp(g.hp / g.stats.maxHp, 0, 1);
     this.hpBar.scaleX = hpFrac;
     this.hpText.setText(Math.max(0, Math.ceil(g.hp)) + ' / ' + g.stats.maxHp);

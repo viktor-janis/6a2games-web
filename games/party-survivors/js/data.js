@@ -299,8 +299,8 @@ PS.BALANCE = {
   maxEnemies: 300,
 
   // Boss aréna: při příchodu bosse utvoří běžní nepřátelé neprostupný ring
-  arenaRadius: 300,   // poloměr ringu kolem hrdiny (×0,7 s tempem hry)
-  arenaSlotGap: 46,   // rozestup nepřátel ve zdi (sprite-based, neškáluje se) → ~41 slotů
+  arenaRadius: 450,   // poloměr ringu kolem hrdiny
+  arenaSlotGap: 46,   // rozestup nepřátel ve zdi (sprite-based, neškáluje se) → ~61 slotů
 
   // Powerupy: vzácné, ~1 spawn za 60–90 s
   powerupIntervalMin: 60,
