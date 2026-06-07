@@ -7,6 +7,14 @@ window.MenuScene = class MenuScene extends Phaser.Scene {
   create() {
     const { width: W, height: H } = this.scale;
 
+    // HTML šipka „« ZPĚT" (partysurvivors.html) — jen v hlavním menu,
+    // jinde by překážela (ve hře je v levém horním rohu HP bar)
+    const back = document.getElementById('back-home');
+    if (back) {
+      back.style.display = 'block';
+      this.events.once('shutdown', () => { back.style.display = 'none'; });
+    }
+
     // Pozadí — barevná party světla + konfety
     PS.UI.glowBlob(this, W * 0.2, H * 0.25, PS.COLORS.pink, 8, 0.10);
     PS.UI.glowBlob(this, W * 0.85, H * 0.6, PS.COLORS.purple, 9, 0.10);
@@ -19,13 +27,18 @@ window.MenuScene = class MenuScene extends Phaser.Scene {
       targets: title, scale: { from: 1, to: 1.04 },
       duration: 1200, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
     });
-    PS.UI.text(this, W / 2, 195, 'PŘEŽIJ CO NEJDÉLE!', 13, PS.UI.hex(PS.COLORS.yellow));
+    PS.UI.text(this, W / 2, 195, 'PŘEŽIJ TUHLE KALBU', 13, PS.UI.hex(PS.COLORS.yellow));
 
-    // rekord
-    let best = 0;
-    try { best = parseFloat(localStorage.getItem(PS.STORAGE.best)) || 0; } catch (e) { /* private mode */ }
-    if (best > 0) {
-      PS.UI.text(this, W / 2, 232, `REKORD: ${PS.UI.fmtTime(best)}`, 11, '#8888aa');
+    // rekord — nový formát { time, name }; starý bezejmenný rekord (ps_best)
+    // je zrušený a uklidí se, počítá se až první rekord se jménem
+    let rec = null;
+    try {
+      localStorage.removeItem(PS.STORAGE.best);
+      rec = JSON.parse(localStorage.getItem(PS.STORAGE.record));
+    } catch (e) { /* private mode / poškozený záznam */ }
+    if (rec && rec.time > 0) {
+      PS.UI.text(this, W / 2, 232,
+        `REKORD: ${PS.UI.fmtTime(rec.time)} — ${rec.name || '???'}`, 11, '#8888aa');
     }
 
     // Položky menu
@@ -78,12 +91,7 @@ window.MenuScene = class MenuScene extends Phaser.Scene {
   }
 
   startGame() {
-    // HeroSelect přibude ve Fázi 2
-    if (this.scene.manager.getScene('HeroSelect')) {
-      this.scene.start('HeroSelect');
-    } else {
-      PS.UI.toast(this, 'VÝBĚR HRDINY PŘIJDE V DALŠÍ FÁZI');
-    }
+    this.scene.start('Name'); // zadání herního jména → výběr hrdiny
   }
 };
 PS.scenes.push(window.MenuScene);

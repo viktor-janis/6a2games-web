@@ -23,8 +23,10 @@ PS.COLORS = {
 };
 
 PS.STORAGE = {
-  keys: 'ps_keys',   // nastavení kláves
-  best: 'ps_best',   // rekord — nejdelší čas přežití (s)
+  keys: 'ps_keys',     // nastavení kláves
+  best: 'ps_best',     // LEGACY — starý rekord bez jména; v menu se maže
+  record: 'ps_record', // rekord — JSON { time, name } (od zavedení jmen)
+  name: 'ps_name',     // naposledy zadané herní jméno (předvyplňuje se)
 };
 
 // ---------- Hrdinové (list „Hrdinové") ----------

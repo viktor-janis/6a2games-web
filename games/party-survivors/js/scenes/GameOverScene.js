@@ -36,7 +36,8 @@ window.GameOverScene = class GameOverScene extends Phaser.Scene {
         duration: 500, yoyo: true, repeat: -1,
       });
     } else if (r.best > 0) {
-      PS.UI.text(this, W / 2, 420, `REKORD: ${PS.UI.fmtTime(r.best)}`, 11, '#8888aa');
+      PS.UI.text(this, W / 2, 420,
+        `REKORD: ${PS.UI.fmtTime(r.best)}${r.bestName ? ' — ' + r.bestName : ''}`, 11, '#8888aa');
     }
 
     // tlačítka

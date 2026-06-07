@@ -1092,12 +1092,17 @@ window.GameScene = class GameScene extends Phaser.Scene {
     this.player.setVelocity(0, 0);
     PS.Audio.death();
 
-    // rekord — nejdelší čas přežití
-    let best = 0;
-    try { best = parseFloat(localStorage.getItem(PS.STORAGE.best)) || 0; } catch (e) { /* private mode */ }
+    // rekord — nejdelší čas přežití + herní jméno (ps_record, JSON { time, name })
+    let rec = null;
+    try { rec = JSON.parse(localStorage.getItem(PS.STORAGE.record)); } catch (e) { /* private mode */ }
+    const best = (rec && rec.time) || 0;
     const isRecord = this.elapsed > best;
+    let playerName = 'HRÁČ';
+    try { playerName = localStorage.getItem(PS.STORAGE.name) || playerName; } catch (e) { /* private mode */ }
     if (isRecord) {
-      try { localStorage.setItem(PS.STORAGE.best, String(this.elapsed)); } catch (e) { /* private mode */ }
+      try {
+        localStorage.setItem(PS.STORAGE.record, JSON.stringify({ time: this.elapsed, name: playerName }));
+      } catch (e) { /* private mode */ }
     }
 
     this.scene.stop('HUD');
@@ -1110,6 +1115,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
       heroName: this.hero.name,
       heroId: this.hero.id,
       best: isRecord ? this.elapsed : best,
+      bestName: isRecord ? playerName : ((rec && rec.name) || ''),
       isRecord,
     });
   }
