@@ -33,7 +33,7 @@ window.LevelUpScene = class LevelUpScene extends Phaser.Scene {
       const def = PS.ATTACKS[choice.id];
       return {
         head: 'NOVÝ ÚTOK', color: PS.COLORS.pink,
-        name: def.name, desc: def.anim,
+        name: def.name, desc: def.desc || def.anim,
       };
     }
     if (choice.type === 'weaponUp') {

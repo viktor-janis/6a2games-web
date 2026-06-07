@@ -13,6 +13,8 @@ window.BootScene = class BootScene extends Phaser.Scene {
     this.makeFloor();
     this.makeGem();
     this.makeKey();
+    this.makeRunda();
+    this.makeArrow();
     this.makeProjectiles();
     this.scene.start('Menu');
   }
@@ -243,6 +245,36 @@ window.BootScene = class BootScene extends Phaser.Scene {
     g.fillRect(20, 10, 3, 5);       // zub 1
     g.fillRect(25, 10, 3, 4);       // zub 2
     g.generateTexture('key', 28, 16);
+    g.destroy();
+  }
+
+  // Runda panclů — čtyři panáky vedle sebe na tácku (vzácný treasure)
+  makeRunda() {
+    const g = this.add.graphics();
+    // tácek
+    g.fillStyle(0x8a6d3b, 1);
+    g.fillRoundedRect(0, 22, 56, 6, 3);
+    // 4 panáky, mírně různá hladina chlastu
+    [3, 16, 29, 42].forEach((x, i) => {
+      g.fillStyle(0xddeeff, 0.95);
+      g.beginPath();
+      g.moveTo(x, 4); g.lineTo(x + 11, 4); g.lineTo(x + 8.5, 23); g.lineTo(x + 2.5, 23);
+      g.closePath(); g.fillPath();
+      g.fillStyle(0xffd24a, 0.95);
+      g.fillRect(x + 3, 10 + (i % 2) * 2, 6, 12 - (i % 2) * 2);
+    });
+    g.generateTexture('runda', 56, 30);
+    g.destroy();
+  }
+
+  // Směrová šipka k Rundě panclů (HUD, tintuje se zlatou)
+  makeArrow() {
+    const g = this.add.graphics();
+    g.fillStyle(0xffffff, 1);
+    g.beginPath();
+    g.moveTo(0, 0); g.lineTo(24, 9); g.lineTo(0, 18); g.lineTo(7, 9);
+    g.closePath(); g.fillPath();
+    g.generateTexture('arrow', 24, 18);
     g.destroy();
   }
 

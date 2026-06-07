@@ -71,7 +71,7 @@ PS.Spawner = class Spawner {
     for (let i = 0; i < count; i++) {
       const r = Math.random();
       const strength = r < 0.6 ? tier : r < 0.85 ? Math.max(1, tier - 1) : Math.max(1, tier - 2);
-      const pos = this.ringPosition(700, 850, true); // bias do směru pohybu — nelze utíkat donekonečna
+      const pos = this.ringPosition(490, 595, true); // bias do směru pohybu — nelze utíkat donekonečna
       this.spawnEnemyAt(strength, pos.x, pos.y);
     }
   }
@@ -100,7 +100,7 @@ PS.Spawner = class Spawner {
     enemy.hp = PS.BALANCE.enemyHp(strength);
     enemy.maxHp = enemy.hp;
     enemy.dmg = PS.BALANCE.enemyDmg(strength);
-    enemy.speed = PS.BALANCE.enemySpeed(strength);
+    enemy.speed = PS.BALANCE.enemySpeed(strength) * info.type.speedMult; // typová rychlost
     enemy.xp = strength; // hodnota gemu
 
     // reset stavových efektů (pooling!)
@@ -108,6 +108,7 @@ PS.Spawner = class Spawner {
     enemy.dotUntil = 0; enemy.dotDps = 0;
     enemy.kbUntil = 0; enemy.stunUntil = 0;
     enemy.lastOrbHit = 0;
+    enemy.ringWall = false;
     return enemy;
   }
 
@@ -116,7 +117,15 @@ PS.Spawner = class Spawner {
     const cycleIdx = (strength / 5 - 1) % 5;        // 0..4 → Kato..Schýza
     const level = Math.floor((strength - 5) / 25) + 1; // Kato(5)=1 … Kato(30)=2
     const def = PS.BOSSES[cycleIdx];
-    const pos = this.ringPosition(550, 650);
+
+    // aréna: střed = pozice hráče, oříznutá tak, aby se celý ring vešel do mapy
+    const r = PS.BALANCE.arenaRadius;
+    const m = PS.BALANCE.mapSize;
+    const cx = Phaser.Math.Clamp(scene.player.x, r + 80, m - r - 80);
+    const cy = Phaser.Math.Clamp(scene.player.y, r + 80, m - r - 80);
+    // boss nastoupí uvnitř arény, na protější stranu než stojí hrdina
+    const a = Phaser.Math.Angle.Between(cx, cy, scene.player.x, scene.player.y) + Math.PI;
+    const pos = { x: cx + Math.cos(a) * r * 0.55, y: cy + Math.sin(a) * r * 0.55 };
 
     const boss = scene.enemies.get(pos.x, pos.y, 'boss-' + def.id);
     if (!boss) return;
@@ -138,17 +147,21 @@ PS.Spawner = class Spawner {
     boss.hp = PS.BALANCE.bossHp(strength);
     boss.maxHp = boss.hp;
     boss.dmg = PS.BALANCE.bossDmg(strength);
-    boss.speed = 42;
+    boss.speed = 29; // ×0,7 s tempem hry
     boss.xp = strength; // killEnemy bossům rozsype víc gemů
 
     boss.slowUntil = 0; boss.slowPct = 0;
     boss.dotUntil = 0; boss.dotDps = 0;
     boss.kbUntil = 0; boss.stunUntil = 0;
     boss.lastOrbHit = 0;
+    boss.ringWall = false;
 
     scene.events.emit('announce', { text: `BOSS: ${boss.bossName}!`, color: PS.COLORS.red });
     scene.cameras.main.shake(300, 0.006);
     PS.Audio.boss();
+
+    // nepřátelé utvoří ring — souboj 1v1 v aréně (viz GameScene.startBossFight)
+    scene.startBossFight(boss, cx, cy);
   }
 
   // pozice na prstenci kolem hráče, oříznutá na hranice mapy
@@ -170,14 +183,14 @@ PS.Spawner = class Spawner {
     };
   }
 
-  // nepřátelé příliš daleko se přemístí zpět k okraji obrazovky (bossové ne)
+  // nepřátelé příliš daleko se přemístí zpět k okraji obrazovky (bossové a ring ne)
   recycleFar() {
     const scene = this.scene;
     scene.enemies.children.iterate(e => {
-      if (!e || !e.active || e.isBoss) return;
+      if (!e || !e.active || e.isBoss || e.ringWall) return;
       const d = Phaser.Math.Distance.Between(e.x, e.y, scene.player.x, scene.player.y);
-      if (d > 1500) {
-        const pos = this.ringPosition(750, 850, true);
+      if (d > 1050) {
+        const pos = this.ringPosition(525, 595, true);
         e.body.reset(pos.x, pos.y);
       }
     });

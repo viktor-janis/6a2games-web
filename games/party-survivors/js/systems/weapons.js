@@ -1,5 +1,7 @@
 // ============================================================
-// Zbraně — všech 9 archetypů útoků dle parametrů z logika.xlsx
+// Zbraně — 9 archetypů útoků, každý s jiným profilem (VS styl)
+//   míření: facingDir (kam je hrdina otočený) / aimDir (nejbližší) / pevný vzor
+//   profily: nuke × rychlopalba, pierce × odrazy × AoE, knockback/stun/slow
 // Každá zbraň: level (1–8, +25 % DMG za level), cooldown akumulátor
 // Globální multiplikátory (dmgMult, krit…) aplikuje GameScene.dealDamage
 // ============================================================
@@ -31,7 +33,7 @@ PS.Weapon = class Weapon {
 
   update(dt) { this['tick_' + this.def.archetype](dt); }
 
-  // ============ blití — kužel / proud s DoT (Rashid) ============
+  // ============ blití — kužel ve směru pohledu s DoT (Rashid) ============
   tick_cone(dt) {
     const s = this.scene, def = this.def, now = s.time.now;
     this.acc += dt;
@@ -40,13 +42,12 @@ PS.Weapon = class Weapon {
       this.acc = 0;
       this.streamUntil = now + def.duration * 1000;
       this.tickAcc = def.tick; // první tik okamžitě
-      this.streamDir = s.aimDir();
     }
     if (now < this.streamUntil) {
       this.tickAcc += dt;
       if (this.tickAcc >= def.tick) {
         this.tickAcc = 0;
-        this.streamDir = s.aimDir(); // proud se stáčí za nejbližším
+        this.streamDir = s.facingDir(); // proud míří, kam je hrdina otočený
         const range = this.area(def.range);
         const half = Phaser.Math.DegToRad(def.angle / 2);
         s.enemiesInCone(this.streamDir, half, range).forEach(e =>
@@ -99,29 +100,18 @@ PS.Weapon = class Weapon {
     }));
   }
 
-  // ============ házení lahváčem — balistický projektil (Kaar) ============
+  // ============ házení lahváčem — nuke s pevným doletem (Kaar) ============
   tick_lob(dt) {
     this.acc += dt;
     if (this.acc < this.cd()) return;
     this.acc = 0;
     const s = this.scene, def = this.def;
-    const range = this.area(def.range);
 
-    // hází vždy: na nejbližšího (dolet omezen dosahem), jinak do směru pohybu
-    let tx, ty;
-    const t = s.nearestEnemy(800);
-    if (t) {
-      const d = Phaser.Math.Distance.Between(s.player.x, s.player.y, t.x, t.y);
-      const dir = Phaser.Math.Angle.Between(s.player.x, s.player.y, t.x, t.y);
-      const dist = Math.min(d, range);
-      tx = s.player.x + Math.cos(dir) * dist;
-      ty = s.player.y + Math.sin(dir) * dist;
-    } else {
-      const dir = s.aimDir();
-      const dist = range * (0.4 + Math.random() * 0.6);
-      tx = s.player.x + Math.cos(dir) * dist;
-      ty = s.player.y + Math.sin(dir) * dist;
-    }
+    // pevný vzor (jako sekera ve VS): vždy pevná vzdálenost ve směru pohledu
+    const dir = s.facingDir();
+    const dist = this.area(def.range);
+    const tx = s.player.x + Math.cos(dir) * dist;
+    const ty = s.player.y + Math.sin(dir) * dist;
     const img = s.add.image(s.player.x, s.player.y, 'proj-lahvac').setDepth(9);
     s.tweens.add({
       targets: img, x: tx, y: ty,
@@ -135,9 +125,9 @@ PS.Weapon = class Weapon {
   }
   lobImpact(x, y) {
     const s = this.scene, def = this.def;
-    // přímý zásah
-    s.enemiesInCircle(x, y, this.area(28)).forEach(e =>
-      s.dealDamage(e, this.dmg(), { knockback: 1 }));
+    // přímý zásah — plný DMG, odhoz a šance na omráčení (lahváčem do hlavy)
+    s.enemiesInCircle(x, y, this.area(30)).forEach(e =>
+      s.dealDamage(e, this.dmg(), { knockback: def.knockback, stun: def.stun }));
     // výbuch střepů
     s.enemiesInCircle(x, y, this.area(def.burst.r)).forEach(e =>
       s.dealDamage(e, this.dmg(def.burst.dmg)));
@@ -150,22 +140,24 @@ PS.Weapon = class Weapon {
     s.fxCircle(x, y, this.area(def.burst.r), 0xc77b30);
   }
 
-  // ============ plivání vajglů — naváděcí projektil (Fjodor Ket) ============
-  tick_homing(dt) {
+  // ============ plivání vajglů — odrážející se rychlopalba (Fjodor Ket) ============
+  tick_bounce(dt) {
     this.acc += dt;
     if (this.acc < this.cd()) return;
     this.acc = 0;
     const s = this.scene, def = this.def;
-    // střílí vždy: s cílem navádí, bez cíle letí rovně do směru pohybu
-    const t = s.nearestEnemy(800);
+    // letí na nejbližšího (bez cíle rovně do směru pohledu)
+    // a po zásahu se odráží na další nepřátele (viz GameScene.projectileHit)
+    const t = s.nearestEnemy(this.area(def.range));
     s.fireProjectile({
-      texture: 'proj-vajgl', target: t, dir: s.aimDir(), speed: 380, life: 1.1,
-      dmg: this.dmg(), pierce: def.pierce, homing: !!t,
+      texture: 'proj-vajgl', target: t, dir: s.facingDir(), speed: 300, life: 1.2,
+      dmg: this.dmg(), pierce: 0, homing: !!t,
+      bounces: def.bounces, bounceRange: this.area(def.bounceRange),
       effects: { slow: { pct: def.slow.pct, dur: def.slow.dur } },
     });
   }
 
-  // ============ rozlejvání piva — sweep v oblouku (eXtreme) ============
+  // ============ rozlejvání piva — těžký sweep ve směru pohledu (eXtreme) ============
   tick_sweep(dt) {
     this.acc += dt;
     if (this.acc < this.cd()) return;
@@ -173,10 +165,10 @@ PS.Weapon = class Weapon {
     const s = this.scene, def = this.def;
     const range = this.area(def.range);
 
-    const dir = s.aimDir(); // máchne vždy — i naprázdno
+    const dir = s.facingDir(); // máchne kam je hrdina otočený — i naprázdno
     const half = Phaser.Math.DegToRad(def.angle / 2);
     s.enemiesInCone(dir, half, range).forEach(e =>
-      s.dealDamage(e, this.dmg(), { knockback: 1 }));
+      s.dealDamage(e, this.dmg(), { knockback: def.knockback }));
 
     // kaluž piva před hrdinou
     s.addZone({
@@ -230,12 +222,12 @@ PS.Weapon = class Weapon {
       s.enemiesInCircle(ox, oy, 22).forEach(e => {
         if (now - (e.lastOrbHit || 0) < def.rehit * 1000) return;
         e.lastOrbHit = now;
-        s.dealDamage(e, this.dmg(), { knockback: 1 });
+        s.dealDamage(e, this.dmg(), { knockback: def.knockback });
       });
     });
   }
 
-  // ============ facka listem — úzký oblouk + stun (Sajmič Uraka) ============
+  // ============ facka listem — control: obří knockback + stun (Sajmič Uraka) ============
   tick_slap(dt) {
     this.acc += dt;
     if (this.acc < this.cd()) return;
@@ -243,10 +235,10 @@ PS.Weapon = class Weapon {
     const s = this.scene, def = this.def;
     const range = this.area(def.range);
 
-    const dir = s.aimDir(); // švihne vždy — i naprázdno
+    const dir = s.aimDir(); // švihne po nejbližším — i naprázdno
     const half = Phaser.Math.DegToRad(def.angle / 2);
     s.enemiesInCone(dir, half, range).slice(0, def.targets).forEach(e =>
-      s.dealDamage(e, this.dmg(), { knockback: 3, stun: def.stun }));
+      s.dealDamage(e, this.dmg(), { knockback: def.knockback, stun: def.stun }));
 
     // švih listem
     const leaf = s.add.image(

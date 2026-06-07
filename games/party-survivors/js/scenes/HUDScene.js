@@ -50,6 +50,10 @@ window.HUDScene = class HUDScene extends Phaser.Scene {
       .setOrigin(0, 0.5);
     this.bossUi.add([this.bossName, bossBg, this.bossBar]);
 
+    // ---------- šipka k Rundě panclů (jen když je mimo obrazovku) ----------
+    this.rundaArrow = this.add.image(0, 0, 'arrow')
+      .setTint(0xffd24a).setDepth(60).setVisible(false);
+
     // ---------- oznámení (nový tier, boss) ----------
     this.announceQueue = [];
     this.gameScene.events.on('announce', this.onAnnounce, this);
@@ -79,7 +83,7 @@ window.HUDScene = class HUDScene extends Phaser.Scene {
   }
 
   togglePause() {
-    if (this.scene.isActive('LevelUp')) return; // během výběru vylepšení nepauzovat
+    if (this.scene.isActive('LevelUp') || this.scene.isActive('Runda')) return; // během overlayů nepauzovat
     this.paused = !this.paused;
     this.pauseUi.setVisible(this.paused);
     if (this.paused) this.scene.pause('Game');
@@ -141,6 +145,27 @@ window.HUDScene = class HUDScene extends Phaser.Scene {
       this.bossBar.scaleX = Phaser.Math.Clamp(boss.hp / boss.maxHp, 0, 1);
     } else {
       this.bossUi.setVisible(false);
+    }
+
+    // šipka k Rundě panclů — od středu obrazovky směrem k Rundě, přilepená k okraji
+    if (g.runda) {
+      const cam = g.cameras.main;
+      const W = this.scale.width, H = this.scale.height;
+      const dx = g.runda.x - (cam.scrollX + W / 2);
+      const dy = g.runda.y - (cam.scrollY + H / 2);
+      if (Math.abs(dx) < W / 2 - 50 && Math.abs(dy) < H / 2 - 50) {
+        this.rundaArrow.setVisible(false); // Runda je na obrazovce — šipka pryč
+      } else {
+        const t = Math.min(
+          (W / 2 - 56) / Math.abs(dx || 1e-6),
+          (H / 2 - 56) / Math.abs(dy || 1e-6));
+        this.rundaArrow.setVisible(true)
+          .setPosition(W / 2 + dx * t, H / 2 + dy * t)
+          .setRotation(Math.atan2(dy, dx))
+          .setAlpha(0.65 + 0.35 * Math.sin(this.time.now / 150)); // pulzuje
+      }
+    } else {
+      this.rundaArrow.setVisible(false);
     }
   }
 };

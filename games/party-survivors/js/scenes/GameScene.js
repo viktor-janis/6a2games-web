@@ -63,6 +63,10 @@ window.GameScene = class GameScene extends Phaser.Scene {
     this.immortalUntil = 0;   // klíč-nesmrtelnost
     this.overflowXp = 0;      // XP z gemů, na které nezbyl pool
     this.facing = { x: 1, y: 0 }; // poslední směr pohybu — fallback míření útoků
+    this.bossFight = null;    // aktivní boss aréna: { boss, cx, cy, r }
+    this.arenaFx = null;      // vizuální okraj arény
+    this.runda = null;        // Runda panclů na mapě: { x, y, img, glow, tween }
+    this.rundaOpen = false;   // otevřený reveal overlay (RundaScene)
 
     // ---------- klávesy (nastavené + šipky vždy) ----------
     this.bind = PS.Keys.load();
@@ -114,8 +118,9 @@ window.GameScene = class GameScene extends Phaser.Scene {
     }).setDepth(20);
     this.dmgPool = []; // pool plovoucích čísel poškození
 
-    // ---------- powerupy (klíčky) ----------
+    // ---------- powerupy (klíčky) + Runda panclů ----------
     this.schedulePowerup();
+    this.scheduleRunda();
   }
 
   update(_time, delta) {
@@ -124,12 +129,15 @@ window.GameScene = class GameScene extends Phaser.Scene {
     this.elapsed += dt;
 
     this.movePlayer();
+    if (this.bossFight) this.clampToArena(); // ring nelze prorazit
     this.floor.setTilePosition(this.cameras.main.scrollX, this.cameras.main.scrollY);
-    this.spawner.update(dt);
+    // během souboje s bossem stojí spawn vln, powerupů i časomíra tierů
+    if (!this.bossFight) this.spawner.update(dt);
     this.moveEnemies();
     this.updateBosses(dt);
     this.updateGems();
     this.updatePowerups();
+    this.updateRunda();
     this.updateProjectiles(dt);
     this.updateEnemyProjectiles(dt);
     this.weapons.forEach(w => w.update(dt));
@@ -170,11 +178,16 @@ window.GameScene = class GameScene extends Phaser.Scene {
     }
   }
 
-  // směr míření útoků (VS styl): nejbližší nepřítel na obrazovce, jinak směr pohybu
-  aimDir(maxDist = 800) {
+  // směr, kam je hrdina otočený (poslední směr pohybu) — útoky s aim: 'facing'
+  facingDir() {
+    return Math.atan2(this.facing.y, this.facing.x);
+  }
+
+  // nejbližší nepřítel, jinak směr pohledu — útoky s aim: 'nearest'
+  aimDir(maxDist = 560) {
     const t = this.nearestEnemy(maxDist);
     if (t) return Phaser.Math.Angle.Between(this.player.x, this.player.y, t.x, t.y);
-    return Math.atan2(this.facing.y, this.facing.x);
+    return this.facingDir();
   }
 
   moveEnemies() {
@@ -184,6 +197,19 @@ window.GameScene = class GameScene extends Phaser.Scene {
     this.enemies.children.iterate(e => {
       if (!e || !e.active) return;
       if (frozen || now < (e.stunUntil || 0)) { e.setVelocity(0, 0); return; }
+      if (e.ringWall) {
+        // zeď ringu: doběhnout na svůj slot a stát (kontaktní damage zůstává)
+        const dx = e.ringX - e.x, dy = e.ringY - e.y;
+        const d = Math.hypot(dx, dy);
+        if (d > 6) {
+          const sp = Math.max(e.speed, 90); // ať se ring uzavře svižně
+          e.setVelocity(dx / d * sp, dy / d * sp);
+        } else {
+          e.setVelocity(0, 0);
+        }
+        e.setFlipX(px < e.x); // kouká do arény na hrdinu
+        return;
+      }
       if (now < (e.kbUntil || 0)) return; // letí od knockbacku
       let sp = e.speed;
       if (now < (e.slowUntil || 0)) sp *= 1 - e.slowPct;
@@ -197,6 +223,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
   // ---------- centrální poškození a efekty ----------
   dealDamage(enemy, base, opts = {}) {
     if (!enemy || !enemy.active) return;
+    if (enemy.ringWall) return; // zeď ringu je během souboje s bossem nezranitelná
     let dmg = base * this.stats.dmgMult;
     if (this.time.now < this.buffDmgUntil) dmg *= 1.3; // klíč-damage
     let crit = false;
@@ -232,10 +259,11 @@ window.GameScene = class GameScene extends Phaser.Scene {
     }
   }
 
+  // síla 1 (malý) – 4 (obrovský); bossové odolávají (30 % účinku)
   knockback(enemy, strength) {
-    const big = strength >= 3;
-    const vel = big ? 420 : 190;
-    const dur = big ? 220 : 130;
+    const resist = enemy.isBoss ? 0.3 : 1;
+    const vel = (84 + strength * 56) * resist;  // 140 / 196 / 252 / 308 (×0,7)
+    const dur = (90 + strength * 40) * resist;  // 130 / 170 / 210 / 250 ms
     const a = Phaser.Math.Angle.Between(this.player.x, this.player.y, enemy.x, enemy.y);
     enemy.setVelocity(Math.cos(a) * vel, Math.sin(a) * vel);
     enemy.kbUntil = this.time.now + dur;
@@ -293,11 +321,16 @@ window.GameScene = class GameScene extends Phaser.Scene {
 
   // ---------- prostorové dotazy ----------
   nearestEnemy(range) {
-    const px = this.player.x, py = this.player.y;
+    return this.nearestEnemyTo(this.player.x, this.player.y, range);
+  }
+
+  // nejbližší nepřítel k bodu; exclude = Set už zasažených (odrazy vajglů)
+  // Zeď ringu (e.ringWall) všechny dotazy ignorují — útoky míří jen do arény.
+  nearestEnemyTo(x, y, range, exclude) {
     let best = null, bestD = range * range;
     this.enemies.children.iterate(e => {
-      if (!e || !e.active) return;
-      const d = (e.x - px) ** 2 + (e.y - py) ** 2;
+      if (!e || !e.active || e.ringWall || (exclude && exclude.has(e))) return;
+      const d = (e.x - x) ** 2 + (e.y - y) ** 2;
       if (d < bestD) { bestD = d; best = e; }
     });
     return best;
@@ -307,7 +340,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
     const out = [];
     const rr = (r + 14) ** 2;
     this.enemies.children.iterate(e => {
-      if (!e || !e.active) return;
+      if (!e || !e.active || e.ringWall) return;
       if ((e.x - x) ** 2 + (e.y - y) ** 2 <= rr) out.push(e);
     });
     return out;
@@ -318,7 +351,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
     const px = this.player.x, py = this.player.y;
     const rr = (range + 16) ** 2;
     this.enemies.children.iterate(e => {
-      if (!e || !e.active) return;
+      if (!e || !e.active || e.ringWall) return;
       if ((e.x - px) ** 2 + (e.y - py) ** 2 > rr) return;
       const a = Phaser.Math.Angle.Between(px, py, e.x, e.y);
       if (Math.abs(Phaser.Math.Angle.Wrap(a - dir)) <= halfAngle) out.push(e);
@@ -332,7 +365,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
     const ux = Math.cos(dir), uy = Math.sin(dir);
     const halfW = width / 2 + 14;
     this.enemies.children.iterate(e => {
-      if (!e || !e.active) return;
+      if (!e || !e.active || e.ringWall) return;
       const dx = e.x - px, dy = e.y - py;
       const t = dx * ux + dy * uy;           // průmět na osu paprsku
       if (t < 0 || t > range + 16) return;
@@ -356,6 +389,8 @@ window.GameScene = class GameScene extends Phaser.Scene {
     p.homing = !!cfg.homing;
     p.target = cfg.target || null;
     p.effects = cfg.effects || {};
+    p.bounces = cfg.bounces || 0;        // odrazy mezi nepřáteli (vajgly)
+    p.bounceRange = cfg.bounceRange || 0;
     p.hitSet = new Set();
     if (cfg.target) {
       this.physics.moveToObject(p, cfg.target, cfg.speed);
@@ -383,9 +418,23 @@ window.GameScene = class GameScene extends Phaser.Scene {
 
   projectileHit(proj, enemy) {
     if (!proj.active || !enemy.active) return;
+    if (enemy.ringWall) return; // projektily zdí ringu prolétají (nestojí pierce)
     if (proj.hitSet.has(enemy)) return; // stejný cíl jen jednou
     proj.hitSet.add(enemy);
     this.dealDamage(enemy, proj.dmg, proj.effects);
+
+    // odraz na dalšího nepřítele v okolí (vajgly)
+    if (proj.bounces > 0) {
+      const next = this.nearestEnemyTo(proj.x, proj.y, proj.bounceRange, proj.hitSet);
+      if (next) {
+        proj.bounces -= 1;
+        proj.target = next;
+        proj.homing = true;
+        proj.life = Math.max(proj.life, 0.6); // ať odraz stihne doletět
+        this.physics.moveToObject(proj, next, proj.body.velocity.length() || 300);
+        return;
+      }
+    }
     proj.pierce -= 1;
     if (proj.pierce < 0) this.recycle(proj);
   }
@@ -453,6 +502,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
       this.fxCircle(enemy.x, enemy.y, 110, PS.COLORS.yellow);
       this.confettiEmitter.explode(50, enemy.x, enemy.y);
       PS.Audio.bossDead();
+      if (this.bossFight && this.bossFight.boss === enemy) this.endBossFight();
     } else {
       this.dropGem(enemy.x, enemy.y, enemy.xp);
       PS.Audio.kill();
@@ -484,11 +534,94 @@ window.GameScene = class GameScene extends Phaser.Scene {
   // poškození bez multiplikátorů (klíč-čistka)
   rawDamage(enemy, dmg) {
     if (!enemy || !enemy.active) return;
+    if (enemy.ringWall) return; // zeď ringu nezraní ani čistka
     enemy.hp -= dmg;
     enemy.setTintFill(0xffffff);
     this.time.delayedCall(60, () => { if (enemy.active) enemy.clearTint(); });
     this.showDamage(enemy.x, enemy.y, dmg, false);
     if (enemy.hp <= 0) this.killEnemy(enemy);
+  }
+
+  // ---------- boss aréna (ring nepřátel) ----------
+  // Při příchodu bosse se živí nepřátelé seběhnou na kruh kolem hrdiny a utvoří
+  // nezranitelnou zeď. Hrdina bojuje jen s bossem (a případnými vyvolanci
+  // Haadese); ring nelze prorazit — clampToArena. Po smrti bosse se zeď
+  // rozpustí a nepřátelé pokračují v normálním útoku.
+  startBossFight(boss, cx, cy) {
+    const r = PS.BALANCE.arenaRadius;
+    this.bossFight = { boss, cx, cy, r };
+
+    // neonový okraj arény
+    this.arenaFx = this.add.graphics().setDepth(2);
+    this.arenaFx.lineStyle(5, PS.COLORS.pink, 0.3);
+    this.arenaFx.strokeCircle(cx, cy, r);
+
+    // sloty po obvodu: živí nepřátelé dostanou slot dle svého úhlu (necestují
+    // křížem), přebyteční tiše zmizí (bez XP), prázdné sloty se dospawnují
+    const slots = Math.floor(Math.PI * 2 * r / PS.BALANCE.arenaSlotGap);
+    const alive = [];
+    this.enemies.children.iterate(e => {
+      if (e && e.active && !e.isBoss) alive.push(e);
+    });
+    alive.sort((a, b) =>
+      Phaser.Math.Angle.Between(cx, cy, a.x, a.y) -
+      Phaser.Math.Angle.Between(cx, cy, b.x, b.y));
+
+    const taken = new Array(slots).fill(false);
+    alive.forEach((e, i) => {
+      if (i >= slots) { e.disableBody(true, true); return; } // přebytek zmizí
+      let k = Math.round(i * slots / Math.min(alive.length, slots)) % slots;
+      while (taken[k]) k = (k + 1) % slots;
+      taken[k] = true;
+      this.ringify(e, k / slots * Math.PI * 2);
+    });
+
+    // zbylé sloty doplní čerství nepřátelé (mix dle aktuálního tieru),
+    // spawnou se kus za ringem a doběhnou na místo
+    const tier = this.spawner.tier();
+    const m = PS.BALANCE.mapSize;
+    for (let k = 0; k < slots; k++) {
+      if (taken[k]) continue;
+      const angle = k / slots * Math.PI * 2;
+      const rnd = Math.random();
+      const strength = rnd < 0.6 ? tier : rnd < 0.85 ? Math.max(1, tier - 1) : Math.max(1, tier - 2);
+      const dist = r + 100 + Math.random() * 110;
+      const e = this.spawner.spawnEnemyAt(strength,
+        Phaser.Math.Clamp(cx + Math.cos(angle) * dist, 30, m - 30),
+        Phaser.Math.Clamp(cy + Math.sin(angle) * dist, 30, m - 30));
+      if (e) this.ringify(e, angle);
+    }
+
+    this.events.emit('announce', { text: 'RING SE UZAVÍRÁ!', color: PS.COLORS.pink });
+  }
+
+  // z nepřítele se stane článek zdi ringu
+  ringify(e, angle) {
+    const { cx, cy, r } = this.bossFight;
+    e.ringWall = true;
+    e.ringX = cx + Math.cos(angle) * r;
+    e.ringY = cy + Math.sin(angle) * r;
+    // zeď je nezranitelná — stavové efekty z předchozího boje pryč
+    e.slowUntil = 0; e.dotUntil = 0; e.kbUntil = 0; e.stunUntil = 0;
+  }
+
+  // hrdina nemůže ring prorazit: radiální složka pohybu se ořízne, tangenciální
+  // projde — klouzání podél zdi funguje přirozeně (clamp běží každý frame)
+  clampToArena() {
+    const { cx, cy, r } = this.bossFight;
+    const dx = this.player.x - cx, dy = this.player.y - cy;
+    const d = Math.hypot(dx, dy);
+    const maxD = r - 24; // těsně u zdi — kontaktní damage od ringu funguje
+    if (d <= maxD) return;
+    this.player.body.reset(cx + dx / d * maxD, cy + dy / d * maxD);
+  }
+
+  // boss poražen — ring se rozpustí a dav se vrhne na hrdinu
+  endBossFight() {
+    this.bossFight = null;
+    if (this.arenaFx) { this.arenaFx.destroy(); this.arenaFx = null; }
+    this.enemies.children.iterate(e => { if (e && e.active) e.ringWall = false; });
+    this.events.emit('announce', { text: 'RING SE ROZPADL!', color: PS.COLORS.green });
   }
 
   // ---------- bossové ----------
@@ -502,19 +635,19 @@ window.GameScene = class GameScene extends Phaser.Scene {
 
       switch (e.mechanic) {
         case 'projectiles': // Kato — plive zuby
-          if (e.atkAcc >= 2.5 && dist < 600) { e.atkAcc = 0; this.bossSpitTeeth(e); }
+          if (e.atkAcc >= 2.5 && dist < 420) { e.atkAcc = 0; this.bossSpitTeeth(e); }
           break;
         case 'pushwave': // Rohony — zvuková vlna (bez damage)
-          if (e.atkAcc >= 3.0 && dist < 300) { e.atkAcc = 0; this.bossPushwave(e); }
+          if (e.atkAcc >= 3.0 && dist < 210) { e.atkAcc = 0; this.bossPushwave(e); }
           break;
         case 'meleeswing': // Churaq — baseballka jen na blízko
-          if (e.atkAcc >= 2.0 && dist < 150) { e.atkAcc = 0; this.bossSwing(e); }
+          if (e.atkAcc >= 2.0 && dist < 105) { e.atkAcc = 0; this.bossSwing(e); }
           break;
         case 'summoner': // Haades — vyvolává Pikaře
           if (e.atkAcc >= 4.0) { e.atkAcc = 0; this.bossSummon(e); }
           break;
         case 'hypnosis': // Schýza — zmrazí hráče
-          if (e.atkAcc >= 5.0 && dist < 420) { e.atkAcc = 0; this.bossHypnosis(e); }
+          if (e.atkAcc >= 5.0 && dist < 295) { e.atkAcc = 0; this.bossHypnosis(e); }
           break;
       }
     });
@@ -532,7 +665,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
       p.dmg = boss.dmg * 0.7;
       p.life = 3;
       const a = base + off;
-      p.setVelocity(Math.cos(a) * 240, Math.sin(a) * 240);
+      p.setVelocity(Math.cos(a) * 170, Math.sin(a) * 170);
       p.setRotation(a);
     });
   }
@@ -549,20 +682,20 @@ window.GameScene = class GameScene extends Phaser.Scene {
     });
 
     const dist = Phaser.Math.Distance.Between(boss.x, boss.y, this.player.x, this.player.y);
-    if (dist < 300) {
+    if (dist < 210) {
       const a = Phaser.Math.Angle.Between(boss.x, boss.y, this.player.x, this.player.y);
-      this.player.setVelocity(Math.cos(a) * 640, Math.sin(a) * 640);
+      this.player.setVelocity(Math.cos(a) * 450, Math.sin(a) * 450);
       this.playerKbUntil = this.time.now + 280; // odhození, ale žádný damage
     }
   }
 
   bossSwing(boss) {
-    this.fxCircle(boss.x, boss.y, 150, 0xff9100);
+    this.fxCircle(boss.x, boss.y, 105, 0xff9100);
     const dist = Phaser.Math.Distance.Between(boss.x, boss.y, this.player.x, this.player.y);
-    if (dist < 160) {
+    if (dist < 110) {
       this.hitPlayer(boss.dmg);
       const a = Phaser.Math.Angle.Between(boss.x, boss.y, this.player.x, this.player.y);
-      this.player.setVelocity(Math.cos(a) * 520, Math.sin(a) * 520);
+      this.player.setVelocity(Math.cos(a) * 365, Math.sin(a) * 365);
       this.playerKbUntil = this.time.now + 250;
     }
   }
@@ -575,8 +708,8 @@ window.GameScene = class GameScene extends Phaser.Scene {
     strengths.forEach((s, i) => {
       const a = Math.random() * Math.PI * 2;
       this.spawner.spawnEnemyAt(s,
-        Phaser.Math.Clamp(boss.x + Math.cos(a) * 70, 30, PS.BALANCE.mapSize - 30),
-        Phaser.Math.Clamp(boss.y + Math.sin(a) * 70, 30, PS.BALANCE.mapSize - 30));
+        Phaser.Math.Clamp(boss.x + Math.cos(a) * 50, 30, PS.BALANCE.mapSize - 30),
+        Phaser.Math.Clamp(boss.y + Math.sin(a) * 50, 30, PS.BALANCE.mapSize - 30));
     });
   }
 
@@ -619,8 +752,8 @@ window.GameScene = class GameScene extends Phaser.Scene {
       if (!g || !g.active) return;
       const dSq = (g.x - px) ** 2 + (g.y - py) ** 2;
       if (dSq < 26 * 26) { this.collectGem(g); return; }
-      if (g.magnetized) this.physics.moveToObject(g, this.player, 540);
-      else if (dSq < magnetSq) this.physics.moveToObject(g, this.player, 340);
+      if (g.magnetized) this.physics.moveToObject(g, this.player, 380);
+      else if (dSq < magnetSq) this.physics.moveToObject(g, this.player, 240);
       else g.setVelocity(0, 0);
     });
   }
@@ -644,7 +777,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
       PS.BALANCE.powerupIntervalMin * 1000, PS.BALANCE.powerupIntervalMax * 1000);
     this.time.delayedCall(delay, () => {
       if (this.over) return;
-      this.spawnPowerup();
+      if (!this.bossFight) this.spawnPowerup(); // během souboje s bossem nic nespawnovat
       this.schedulePowerup();
     });
   }
@@ -652,7 +785,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
   spawnPowerup() {
     const def = Phaser.Utils.Array.GetRandom(PS.POWERUPS);
     const a = Math.random() * Math.PI * 2;
-    const r = Phaser.Math.Between(380, 650);
+    const r = Phaser.Math.Between(270, 455);
     const m = PS.BALANCE.mapSize;
     const x = Phaser.Math.Clamp(this.player.x + Math.cos(a) * r, 40, m - 40);
     const y = Phaser.Math.Clamp(this.player.y + Math.sin(a) * r, 40, m - 40);
@@ -678,8 +811,8 @@ window.GameScene = class GameScene extends Phaser.Scene {
     this.powerups.children.iterate(p => {
       if (!p || !p.active) return;
       const dSq = (p.x - px) ** 2 + (p.y - py) ** 2;
-      if (p.magnetized) this.physics.moveToObject(p, this.player, 540);
-      else if (dSq < magnetSq) this.physics.moveToObject(p, this.player, 340);
+      if (p.magnetized) this.physics.moveToObject(p, this.player, 380);
+      else if (dSq < magnetSq) this.physics.moveToObject(p, this.player, 240);
       else p.setVelocity(0, 0);
     });
   }
@@ -733,6 +866,97 @@ window.GameScene = class GameScene extends Phaser.Scene {
     }
   }
 
+  // ---------- Runda panclů (vzácný treasure, VS styl) ----------
+  scheduleRunda(delayMs) {
+    const d = delayMs !== undefined ? delayMs
+      : Phaser.Math.Between(PS.BALANCE.rundaIntervalMin * 1000, PS.BALANCE.rundaIntervalMax * 1000);
+    this.time.delayedCall(d, () => {
+      if (this.over) return;
+      // boss fight nebo nesebraná Runda na mapě → zkusit znovu za chvíli
+      if (this.bossFight || this.runda) { this.scheduleRunda(25000); return; }
+      this.spawnRunda();
+      this.scheduleRunda();
+    });
+  }
+
+  spawnRunda() {
+    const a = Math.random() * Math.PI * 2;
+    const r = Phaser.Math.Between(PS.BALANCE.rundaSpawnMin, PS.BALANCE.rundaSpawnMax);
+    const m = PS.BALANCE.mapSize;
+    const x = Phaser.Math.Clamp(this.player.x + Math.cos(a) * r, 60, m - 60);
+    const y = Phaser.Math.Clamp(this.player.y + Math.sin(a) * r, 60, m - 60);
+
+    const glow = this.add.image(x, y, 'glow').setTint(0xffd24a).setAlpha(0.5).setDepth(3);
+    const img = this.add.image(x, y, 'runda').setDepth(4);
+    const tween = this.tweens.add({
+      targets: [img, glow], scale: { from: 1.4, to: 1.75 }, duration: 520, yoyo: true, repeat: -1,
+    });
+    this.runda = { x, y, img, glow, tween };
+
+    this.events.emit('announce', { text: 'NĚKDO OBJEDNAL RUNDU PANCLŮ!', color: PS.COLORS.yellow });
+    PS.Audio.runda();
+  }
+
+  updateRunda() {
+    if (!this.runda) return;
+    const d = (this.runda.x - this.player.x) ** 2 + (this.runda.y - this.player.y) ** 2;
+    if (d < 38 * 38) this.collectRunda();
+  }
+
+  collectRunda() {
+    const r = this.runda;
+    this.runda = null;
+    r.tween.stop();
+    r.img.destroy();
+    r.glow.destroy();
+    this.burstConfetti(r.x, r.y);
+
+    this.rundaOpen = true;
+    this.scene.pause();
+    this.scene.launch('Runda', { rewards: this.rollRundaRewards() });
+    PS.Audio.levelup();
+  }
+
+  // 2–4 náhodné klíče (bez duplicit) + 1–3 stálé upgrady; VS treasure styl —
+  // vylepšuje jen to, co hrdina vlastní (žádné nové útoky), respektuje max levely
+  rollRundaRewards() {
+    const B = PS.BALANCE;
+    const rewards = [];
+
+    Phaser.Utils.Array.Shuffle(PS.POWERUPS.slice())
+      .slice(0, Phaser.Math.Between(B.rundaKeys.min, B.rundaKeys.max))
+      .forEach(def => rewards.push({
+        kind: 'key', def, name: def.name, desc: def.desc, color: def.color,
+      }));
+
+    const pool = [];
+    this.weapons.forEach(w => {
+      if (w.level < B.weaponMaxLevel) pool.push({
+        choice: { type: 'weaponUp', id: w.id }, name: w.def.name,
+        desc: `Poškození +25 % (LV ${w.level} > ${w.level + 1})`, color: PS.COLORS.yellow,
+      });
+    });
+    PS.UPGRADES.forEach(u => {
+      if ((this.passiveLevels[u.id] || 0) < B.passiveMaxLevel) pool.push({
+        choice: { type: 'passive', id: u.id }, name: u.name, desc: u.desc, color: PS.COLORS.cyan,
+      });
+    });
+    Phaser.Utils.Array.Shuffle(pool)
+      .slice(0, Phaser.Math.Between(B.rundaUpgrades.min, B.rundaUpgrades.max))
+      .forEach(c => rewards.push({ kind: 'upgrade', ...c }));
+
+    return rewards;
+  }
+
+  // aplikace odměn po zavření overlaye (volá RundaScene před resume)
+  applyRundaRewards(rewards) {
+    this.rundaOpen = false;
+    rewards.forEach(rw => {
+      if (rw.kind === 'key') this.applyPowerup(rw.def);
+      else this.applyChoice(rw.choice);
+    });
+  }
+
   // ---------- level-up: výběr ze 3 karet ----------
   openLevelUp() {
     this.levelUpOpen = true;
@@ -742,23 +966,38 @@ window.GameScene = class GameScene extends Phaser.Scene {
     PS.Audio.levelup();
   }
 
+  // Vážené losování (VS styl): vylepšení už vlastněných útoků mají vyšší
+  // váhu než nové útoky a pasivky — zejména v prvních levelech, aby šel
+  // rozvíjet startovní útok. Žádné pevné pravidlo, jen pravděpodobnost
+  // (viz PS.BALANCE.weaponUpWeight).
   buildChoices() {
     const pool = [];
+    const wUp = PS.BALANCE.weaponUpWeight(this.level);
     if (this.weapons.length < PS.BALANCE.maxWeapons) {
       Object.keys(PS.ATTACKS).forEach(id => {
-        if (!this.weapons.find(w => w.id === id)) pool.push({ type: 'newWeapon', id });
+        if (!this.weapons.find(w => w.id === id)) pool.push({ type: 'newWeapon', id, weight: 1 });
       });
     }
     this.weapons.forEach(w => {
-      if (w.level < PS.BALANCE.weaponMaxLevel) pool.push({ type: 'weaponUp', id: w.id });
+      if (w.level < PS.BALANCE.weaponMaxLevel) pool.push({ type: 'weaponUp', id: w.id, weight: wUp });
     });
     PS.UPGRADES.forEach(u => {
       if ((this.passiveLevels[u.id] || 0) < PS.BALANCE.passiveMaxLevel) {
-        pool.push({ type: 'passive', id: u.id });
+        pool.push({ type: 'passive', id: u.id, weight: 1 });
       }
     });
-    Phaser.Utils.Array.Shuffle(pool);
-    return pool.slice(0, 3);
+
+    // vážený výběr 3 různých karet (losování bez opakování)
+    const picks = [];
+    while (pool.length > 0 && picks.length < 3) {
+      let total = 0;
+      for (const c of pool) total += c.weight;
+      let r = Math.random() * total;
+      let idx = 0;
+      while (idx < pool.length - 1 && (r -= pool[idx].weight) > 0) idx++;
+      picks.push(pool.splice(idx, 1)[0]);
+    }
+    return picks;
   }
 
   applyChoice(c) {
@@ -816,6 +1055,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
 
     this.scene.stop('HUD');
     if (this.levelUpOpen) this.scene.stop('LevelUp'); // pojistka — overlay nesmí přežít hru
+    if (this.rundaOpen) this.scene.stop('Runda');
     this.scene.start('GameOver', {
       time: this.elapsed,
       kills: this.kills,

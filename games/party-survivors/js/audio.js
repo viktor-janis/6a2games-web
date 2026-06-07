@@ -59,6 +59,7 @@ PS.Audio = {
   },
   playerHit() { this.tone(110, 0.18, 'sawtooth', 0.18, 55); },
   levelup() { this.seq([523, 659, 784, 1047], 0.08, 'square', 0.11); },
+  runda() { this.seq([392, 523, 659, 784, 1047, 1319], 0.09, 'square', 0.1); }, // fanfára Rundy panclů
   powerup() { this.seq([784, 988, 1175], 0.07, 'triangle', 0.13); },
   boss() {
     this.tone(98, 0.5, 'sawtooth', 0.2, 196);
