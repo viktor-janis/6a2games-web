@@ -1,0 +1,227 @@
+// ============================================================
+// Party Survivors — herní data (přepis z logika.xlsx)
+// + balanc konstanty (finální ladění ve Fázi 6)
+// ============================================================
+window.PS = window.PS || {};
+
+// Registr scén — každý soubor scény se sem přidá, main.js z toho staví hru
+PS.scenes = [];
+
+// ---------- Paleta (ladí s neonovým stylem webu) ----------
+PS.COLORS = {
+  bg:      0x050010,
+  pink:    0xff2bd6,
+  cyan:    0x00ffff,
+  yellow:  0xffe600,
+  green:   0x39ff14,
+  orange:  0xff9100,
+  purple:  0xb44cff,
+  red:     0xff3b3b,
+  white:   0xffffff,
+  dark:    0x050010,
+  confetti: [0xff2bd6, 0x00ffff, 0xffe600, 0x39ff14, 0xff9100, 0xb44cff],
+};
+
+PS.STORAGE = {
+  keys: 'ps_keys',   // nastavení kláves
+  best: 'ps_best',   // rekord — nejdelší čas přežití (s)
+};
+
+// ---------- Hrdinové (list „Hrdinové") ----------
+// intro1/intro2 = doslovné texty ze sloupců „Intro 1. řádek" / „Intro 2. řádek"
+PS.HEROES = [
+  {
+    id: 'rashid', name: 'Rashid', attackId: 'bliti', color: 0x39ff14,
+    intro1: 'Primární útok: blití',
+    intro2: 'Speciální schopnost: Každý XP point mu přidá o 5 % více XP',
+    passive: { type: 'xpGain', value: 0.05 },
+  },
+  {
+    id: 'poskok', name: 'Poskok', attackId: 'chcani', color: 0xffe600,
+    intro1: 'Primární útok: chcaní',
+    intro2: 'Speciální schopnost: Pohybuje se o 12 % rychleji.',
+    passive: { type: 'moveSpeed', value: 0.12 },
+  },
+  {
+    id: 'dong', name: 'Don G', attackId: 'tagovani', color: 0xff2bd6,
+    intro1: 'Primární útok: tagování',
+    intro2: 'Speciální schopnost: Sbírá XP a powerupy z o 30 % větší vzdálenosti (větší dosah magnetu).',
+    passive: { type: 'magnet', value: 0.30 },
+  },
+  {
+    id: 'kaar', name: 'Kaar', attackId: 'lahvac', color: 0xc77b30,
+    intro1: 'Primární útok: házení lahváčem',
+    intro2: 'Speciální schopnost: Udílí o 10 % vyšší poškození.',
+    passive: { type: 'damage', value: 0.10 },
+  },
+  {
+    id: 'fjodor', name: 'Fjodor Ket', attackId: 'vajgly', color: 0xa8c020,
+    intro1: 'Primární útok: plivání vaglů',
+    intro2: 'Speciální schopnost: Všechny jeho útoky mají o 8 % kratší cooldown (rychlejší útoky).',
+    passive: { type: 'cooldown', value: 0.08 },
+  },
+  {
+    id: 'extreme', name: 'eXtreme', attackId: 'pivo', color: 0xffb400,
+    intro1: 'Primární útok: rozlejvání piva',
+    intro2: 'Speciální schopnost: Má o 20 % vyšší maximální HP.',
+    passive: { type: 'maxHp', value: 0.20 },
+  },
+  {
+    id: 'fadadevada', name: 'fadadevada', attackId: 'dym', color: 0x9fb8c8,
+    intro1: 'Primární útok: vypouštění dýmu',
+    intro2: 'Speciální schopnost: Regeneruje 1 HP každou sekundu.',
+    passive: { type: 'regen', value: 1 },
+  },
+  {
+    id: 'zlozik', name: 'Zložík', attackId: 'panaky', color: 0xff3b3b,
+    intro1: 'Primární útok: kopání panáků',
+    intro2: 'Speciální schopnost: Má 10 % šanci na kritický zásah za dvojnásobné poškození.',
+    passive: { type: 'crit', value: 0.10, mult: 2 },
+  },
+  {
+    id: 'sajmic', name: 'Sajmič Uraka', attackId: 'list', color: 0x2ecc40,
+    intro1: 'Primární útok: facka listem',
+    intro2: 'Speciální schopnost: Pohlcuje 15 % příchozího poškození (pasivní brnění).',
+    passive: { type: 'armor', value: 0.15 },
+  },
+];
+
+// ---------- Útoky (list „Útoky") — parametry přesně dle tabulky ----------
+PS.ATTACKS = {
+  bliti: {
+    name: 'blití', archetype: 'cone',
+    anim: 'zelený proud směrem od hlavy hrdiny',
+    dmg: 7, tick: 0.4, angle: 60, range: 110, cd: 2.0, duration: 1.2,
+    dot: { dps: 3, dur: 2 }, knockback: 0, pierce: Infinity,
+  },
+  chcani: {
+    name: 'chcaní', archetype: 'beam',
+    anim: 'žlutý proud z pasu hrdiny mířící k nejbližšímu nepříteli; zanechává kaluž',
+    dmg: 10, cd: 1.1, range: 140, width: 24, pierce: 3,
+    puddle: { r: 40, dur: 3, slow: 0.30 }, knockback: 0,
+  },
+  tagovani: {
+    name: 'tagování', archetype: 'zone',
+    anim: 'hrdina sprejem stříkne barevný tag na zem, kde právě stojí',
+    cd: 4.0, r: 70, dur: 6, dmg: 6, tick: 0.5, maxZones: 2, knockback: 0,
+  },
+  lahvac: {
+    name: 'házení lahváčem', archetype: 'lob',
+    anim: 'hrdina obloukem hodí plný lahváč, který se po dopadu roztříští na střepy',
+    dmg: 18, cd: 1.8, range: 260,
+    burst: { r: 60, dmg: 12 },
+    shards: { r: 50, dur: 4, dmg: 3, tick: 0.5 },
+    knockback: 1, // malý
+  },
+  vajgly: {
+    name: 'plivání vajglů', archetype: 'homing',
+    anim: 'zelenožlutý vajgl vystřelený od úst hrdiny, mírně se navádějící na cíl',
+    dmg: 9, cd: 0.7, range: 220, pierce: 1,
+    slow: { pct: 0.25, dur: 1.5 }, knockback: 0,
+  },
+  pivo: {
+    name: 'rozlejvání piva', archetype: 'sweep',
+    anim: 'pohnutí půllitrem plného piva směrem od hrdiny a jeho vylití',
+    dmg: 16, cd: 1.3, angle: 120, range: 90, pierce: Infinity,
+    puddle: { r: 55, dur: 2.5, slow: 0.20 }, knockback: 1,
+  },
+  dym: {
+    name: 'vypouštění dýmu', archetype: 'aura',
+    anim: 'šedý oblak dýmu z vaporizéru trvale obklopující hrdinu',
+    dmg: 4, tick: 0.5, r: 80, slow: 0.15, cd: 0, knockback: 0,
+  },
+  panaky: {
+    name: 'kopání panáků', archetype: 'orbit',
+    anim: 'štamprlata (panáky) vykopnutá do orbitu, krouží kolem hrdiny',
+    count: 2, r: 70, period: 1.5, dmg: 9, rehit: 0.5, knockback: 1,
+  },
+  list: {
+    name: 'facka listem', archetype: 'slap',
+    anim: 'hrdina švihne velkým marihuanovým listem do nejbližšího nepřítele',
+    dmg: 11, cd: 0.9, angle: 45, range: 80, targets: 2,
+    knockback: 3, // velký
+    stun: { chance: 0.15, dur: 0.4 },
+  },
+};
+
+// ---------- Upgrady (list „Upgrady") — pasivky při level-upu ----------
+PS.UPGRADES = [
+  { id: 'odpocinek',  name: 'odpočinek',           desc: 'navýšení max HP o 20 %',                              effect: { type: 'maxHp', value: 0.20 } },
+  { id: 'naslapnuto', name: 'našlápnuto',          desc: 'Navýšení udíleného poškození o 15 %.',                effect: { type: 'damage', value: 0.15 } },
+  { id: 'rozjezd',    name: 'rozjezd',             desc: 'Zkrácení cooldownu všech útoků o 10 %.',              effect: { type: 'cooldown', value: 0.10 } },
+  { id: 'poldove',    name: 'utíkám před poldama', desc: 'Zvýšení rychlosti pohybu hrdiny o 12 %.',             effect: { type: 'moveSpeed', value: 0.12 } },
+  { id: 'pracky',     name: 'delší pracky',        desc: 'Zvětšení zásahové plochy a dosahu všech útoků o 15 %.', effect: { type: 'area', value: 0.15 } },
+  { id: 'nenasyta',   name: 'nenasyta',            desc: 'Zvětšení dosahu sběru XP a powerupů (magnet) o 25 %.', effect: { type: 'magnet', value: 0.25 } },
+  { id: 'kebab',      name: 'kebab v 5 ráno',      desc: 'Regenerace 2 HP každou sekundu.',                     effect: { type: 'regen', value: 2 } },
+];
+
+// ---------- Powerupy (list „Powerups") — klíčky volně na mapě ----------
+PS.POWERUPS = [
+  { id: 'heal',     name: 'klíč - heal',         color: 0xff3b3b, colorName: 'červený',  desc: 'vyléčí 30 % životů (instaheal)',                          effect: { type: 'heal', value: 0.30 } },
+  { id: 'freeze',   name: 'klíč - freeze',       color: 0x3b6cff, colorName: 'modrý',    desc: 'zmrazí všechny nepřátele na 5 sekund',                    effect: { type: 'freeze', dur: 5 } },
+  { id: 'speed',    name: 'klíč - speed',        color: 0xffffff, colorName: 'bílý',     desc: 'zvýší rychlost pohybu hrdiny o 20 % na 20 sekund',        effect: { type: 'speed', value: 0.20, dur: 20 } },
+  { id: 'damage',   name: 'klíč - damage',       color: 0x39ff14, colorName: 'zelený',   desc: 'zvýší udílený damage o 30 % na 10 sekund',                effect: { type: 'damage', value: 0.30, dur: 10 } },
+  { id: 'magnet',   name: 'klíč - magnet',       color: 0xffe600, colorName: 'žlutý',    desc: 'okamžitě přitáhne všechny ležící XP a powerupy k hrdinovi', effect: { type: 'magnet' } },
+  { id: 'immortal', name: 'klíč - nesmrtelnost', color: 0xb44cff, colorName: 'fialový',  desc: 'hrdina je 3 sekundy nezranitelný',                        effect: { type: 'immortal', dur: 3 } },
+  { id: 'cistka',   name: 'klíč - čistka',       color: 0xff9100, colorName: 'oranžový', desc: 'okamžitě zasáhne všechny nepřátele na obrazovce za 200 poškození', effect: { type: 'nuke', dmg: 200 } },
+];
+
+// ---------- Nepřátelé (list „Nepřátelé") ----------
+// Tier n => typ = (n-1) % 5, level = floor((n-1)/5) + 1, síla = n (nekonečná progrese)
+PS.ENEMIES = [
+  { id: 'gufrau',    name: 'gufrau',    vis: 'hipstersky vypadající postavy',                 color: 0x4ecdc4, strength: 1 },
+  { id: 'kravataci', name: 'kravaťáci', vis: 'postavy v obleku s kravatou',                   color: 0x3b5bdb, strength: 2 },
+  { id: 'pikari',    name: 'pikaři',    vis: 'ohnuté postavy ošklivě vypadající',             color: 0x7a9e2e, strength: 3 },
+  { id: 'rodice',    name: 'rodiče',    vis: 'mužská a ženská postava v páru středního věku', color: 0xc98a5a, strength: 4 },
+  { id: 'policiste', name: 'policisté', vis: 'postavy s policejní čepicí',                    color: 0x2255cc, strength: 5 },
+];
+
+// ---------- Bossové (list „Bossové") ----------
+// Boss síly B se spawne ve chvíli, kdy začne tier (B - 2).
+// Po Schýzovi cyklus pokračuje: Kato lvl 2 (síla 30) atd. (+25 síly za cyklus)
+PS.BOSSES = [
+  { id: 'kato',   name: 'Kato',           strength: 5,  vis: 'postava co vypadá jak bezdomovec',        color: 0x8a6d3b,
+    attackName: 'plive zuby',                 mechanic: 'projectiles', mech: 'jednotlivé šipky (zuby), damage jen při přímém zásahu' },
+  { id: 'rohony', name: 'Rohony',         strength: 10, vis: 'divná postava s tetováním na obličeji',   color: 0xb44cff,
+    attackName: 'vysílá negativní zvukové vlny', mechanic: 'pushwave',  mech: 'trychtýř odhazuje hrdinu, nedává damage' },
+  { id: 'churaq', name: 'Churaq Sputnik', strength: 15, vis: 'inspirováno rapperem Churaq Sputnik',     color: 0xff9100,
+    attackName: 'útok baseballovou holí',     mechanic: 'meleeswing',  mech: 'švih do okolí — odhodí hrdinu a dá střední damage, jen na blízko' },
+  { id: 'haades', name: 'Haades',         strength: 20, vis: 'inspirováno rapperem Haades',             color: 0x666688,
+    attackName: 'vyvolává Pikaře lvl 2 a 3',  mechanic: 'summoner',    mech: 'sám neútočí, vyvolává další nepřátele' },
+  { id: 'schyza', name: 'Schýza',         strength: 25, vis: 'černá hmota, která není postava',         color: 0x1a1a2e,
+    attackName: 'hypnotizace',                mechanic: 'hypnosis',    mech: 'zmrazí hrdinu na 0,5 s a dá mu menší damage' },
+];
+
+// ---------- Balanc — výchozí rámec ----------
+PS.BALANCE = {
+  player: { hp: 100, speed: 180, magnet: 50 },
+
+  // Nepřítel síly s (8× — síla 1 umírá na jeden zásah většiny útoků)
+  enemyHp:   (s) => Math.round(8 * Math.pow(s, 1.3)),
+  enemyDmg:  (s) => Math.round(3 + 1.7 * s),
+  enemySpeed:(s) => 55 + Math.min(60, s * 4), // vyšší tiery hráče doženou
+
+  // Boss síly B
+  bossHp:  (B) => 90 * B,
+  bossDmg: (B) => 8 + 2 * B,
+
+  // Časová osa obtížnosti: nový tier každých ~75 s => tier 10–11 ve 13. minutě
+  tierSeconds: 75,
+
+  // XP potřebné na level N (roste progresivně)
+  xpForLevel: (n) => 5 + (n - 1) * 8 + Math.floor(Math.pow(Math.max(0, n - 10), 1.5)) * 4,
+
+  // Level-up volby
+  maxWeapons: 6,          // max útoků na hrdinu (jako VS)
+  weaponMaxLevel: 8,      // max level útoku
+  weaponDmgPerLevel: 0.25,// +25 % DMG za level útoku
+  passiveMaxLevel: 5,     // max úroveň pasivky
+
+  // Mapa a výkon
+  mapSize: 8000,
+  maxEnemies: 300,
+
+  // Powerupy: vzácné, ~1 spawn za 60–90 s
+  powerupIntervalMin: 60,
+  powerupIntervalMax: 90,
+};

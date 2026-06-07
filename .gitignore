@@ -1,0 +1,12 @@
+# Claude Code local settings
+.claude/
+
+# Internal dev/work files
+games/party-survivors/claude_code_prompt.txt
+games/party-survivors/plan.txt
+games/party-survivors/postup.txt
+games/party-survivors/logika.xlsx
+~$*.xlsx
+
+# Unused audio assets
+games/pong/sounds/
