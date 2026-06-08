@@ -173,7 +173,7 @@ PS.ATTACKS = {
     name: 'vypouštění dýmu', archetype: 'aura', aim: 'self',
     anim: 'šedý oblak dýmu z vaporizéru trvale obklopující hrdinu',
     desc: 'Trvalá aura kolem hrdiny: nejnižší DMG, ale bez cooldownu — tiká pořád a zpomaluje.',
-    dmg: 3, tick: 0.5, r: 72, slow: 0.15, cd: 0, knockback: 0,
+    dmg: 3, tick: 0.5, r: 108, slow: 0.15, cd: 0, knockback: 0,
   },
   panaky: {
     name: 'kopání panáků', archetype: 'orbit', aim: 'self',
@@ -245,11 +245,11 @@ PS.UPGRADES = [
 // ---------- Powerupy (list „Powerups") — klíčky volně na mapě ----------
 PS.POWERUPS = [
   { id: 'heal',     name: 'klíč - heal',         color: 0xff3b3b, colorName: 'červený',  desc: 'vyléčí 30 % životů (instaheal)',                          effect: { type: 'heal', value: 0.30 } },
-  { id: 'freeze',   name: 'klíč - freeze',       color: 0x3b6cff, colorName: 'modrý',    desc: 'zmrazí všechny nepřátele na 5 sekund',                    effect: { type: 'freeze', dur: 5 } },
-  { id: 'speed',    name: 'klíč - speed',        color: 0xffffff, colorName: 'bílý',     desc: 'zvýší rychlost pohybu hrdiny o 20 % na 20 sekund',        effect: { type: 'speed', value: 0.20, dur: 20 } },
-  { id: 'damage',   name: 'klíč - damage',       color: 0x39ff14, colorName: 'zelený',   desc: 'zvýší udílený damage o 30 % na 10 sekund',                effect: { type: 'damage', value: 0.30, dur: 10 } },
+  { id: 'freeze',   name: 'klíč - freeze',       color: 0x3b6cff, colorName: 'modrý',    desc: 'zmrazí všechny nepřátele na 8 sekund',                    effect: { type: 'freeze', dur: 8 } },
+  { id: 'speed',    name: 'klíč - speed',        color: 0xffffff, colorName: 'bílý',     desc: 'zvýší rychlost pohybu hrdiny o 20 % na 27 sekund',        effect: { type: 'speed', value: 0.20, dur: 27 } },
+  { id: 'damage',   name: 'klíč - damage',       color: 0x39ff14, colorName: 'zelený',   desc: 'zvýší udílený damage o 30 % na 17 sekund',                effect: { type: 'damage', value: 0.30, dur: 17 } },
   { id: 'magnet',   name: 'klíč - magnet',       color: 0xffe600, colorName: 'žlutý',    desc: 'okamžitě přitáhne všechny ležící XP a powerupy k hrdinovi', effect: { type: 'magnet' } },
-  { id: 'immortal', name: 'klíč - nesmrtelnost', color: 0xb44cff, colorName: 'fialový',  desc: 'hrdina je 3 sekundy nezranitelný',                        effect: { type: 'immortal', dur: 3 } },
+  { id: 'immortal', name: 'klíč - nesmrtelnost', color: 0xb44cff, colorName: 'fialový',  desc: 'hrdina je 10 sekund nezranitelný',                        effect: { type: 'immortal', dur: 10 } },
   { id: 'cistka',   name: 'klíč - čistka',       color: 0xff9100, colorName: 'oranžový', desc: 'okamžitě zasáhne všechny nepřátele na obrazovce za 200 poškození', effect: { type: 'nuke', dmg: 200 } },
 ];
 

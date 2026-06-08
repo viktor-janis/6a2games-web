@@ -331,65 +331,175 @@ window.BootScene = class BootScene extends Phaser.Scene {
     });
   }
 
+  // Každý boss má UNIKÁTNÍ siluetu i charakter (ne sdílená šablona):
+  // Kato=bezdomovec · Rohony=rapper s tetováním · Churaq=namakaný plešoun s
+  // pálkou · Haades=vyžilý feťák · Schýza=beztvará černá hrouda.
   drawBoss(ctx, boss) {
     ctx.lineJoin = 'round';
-    this.groundShadow(ctx, 32, 60, 20, 5);
+    this.groundShadow(ctx, 32, 60, 21, 5);
+    const id = boss.id;
+    const headFill = (cx, cy, r, skin) => {
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, 7);
+      const g = ctx.createRadialGradient(cx - r * 0.35, cy - r * 0.35, 1, cx, cy, r + 1);
+      g.addColorStop(0, this.cssOf(this.light(skin, 14))); g.addColorStop(1, this.cssOf(this.dark(skin, 16)));
+      ctx.fillStyle = g; ctx.fill();
+    };
+    const circEdge = (cx, cy, r) => this.litEdge(ctx, () => { ctx.beginPath(); ctx.arc(cx, cy, r, 0, 7); }, 64);
 
-    if (boss.id === 'schyza') {
-      // černá hmota — chuchvalce + bílé oči
+    // ---------- Schýza — beztvará černá hrouda ----------
+    if (id === 'schyza') {
       const blob = () => {
         ctx.beginPath();
-        [[32, 36, 22], [16, 28, 13], [48, 30, 14], [24, 50, 12], [42, 48, 13], [32, 16, 13]]
+        [[32, 38, 21], [17, 30, 12], [47, 31, 13], [22, 52, 11], [43, 50, 12], [33, 18, 13], [50, 44, 8], [14, 44, 8]]
           .forEach(([x, y, r]) => { ctx.moveTo(x + r, y); ctx.arc(x, y, r, 0, 7); });
+        ctx.moveTo(20, 57); ctx.lineTo(23, 63); ctx.lineTo(26, 56);   // odkapávající cíp
+        ctx.moveTo(38, 56); ctx.lineTo(41, 63); ctx.lineTo(44, 55);
         ctx.closePath();
       };
       blob();
-      const g = ctx.createRadialGradient(28, 28, 4, 32, 36, 30);
-      g.addColorStop(0, '#1a1a30'); g.addColorStop(1, '#06060e'); ctx.fillStyle = g; ctx.fill();
-      ctx.strokeStyle = 'rgba(150,120,255,0.35)'; ctx.lineWidth = 1.5; blob(); ctx.stroke();
-      ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(26, 32, 4.5, 0, 7); ctx.arc(40, 33, 4.5, 0, 7); ctx.fill();
-      ctx.fillStyle = '#120016'; ctx.beginPath(); ctx.arc(27, 33, 2, 0, 7); ctx.arc(41, 34, 2, 0, 7); ctx.fill();
+      const g = ctx.createRadialGradient(28, 30, 3, 32, 38, 33);
+      g.addColorStop(0, '#23203a'); g.addColorStop(0.6, '#10101f'); g.addColorStop(1, '#050509');
+      ctx.fillStyle = g; ctx.fill();
+      ctx.strokeStyle = 'rgba(150,110,255,0.4)'; ctx.lineWidth = 1.5; blob(); ctx.stroke();
+      // tři svítící oči, asymetricky → nelidské
+      [[25, 34, 3.5], [40, 33, 4], [33, 45, 2.4]].forEach(([x, y, r]) => {
+        const e = ctx.createRadialGradient(x, y, 0, x, y, r + 2.5);
+        e.addColorStop(0, '#eafaff'); e.addColorStop(0.5, '#9fe0ff'); e.addColorStop(1, 'rgba(120,180,255,0)');
+        ctx.fillStyle = e; ctx.beginPath(); ctx.arc(x, y, r + 2.5, 0, 7); ctx.fill();
+        ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.arc(x, y, r * 0.55, 0, 7); ctx.fill();
+        ctx.fillStyle = '#0a0014'; ctx.beginPath(); ctx.arc(x + 0.4, y + 0.4, r * 0.3, 0, 7); ctx.fill();
+      });
       return;
     }
 
-    const c = boss.color;
-    // nohy
-    [[20], [35]].forEach(([lx]) => { this.rr(ctx, lx, 49, 10, 14, 3); ctx.fillStyle = this.vGrad(ctx, 49, 63, 0x1a1a30, 0x0c0c18); ctx.fill(); });
-    // ruce
-    [[8], [49]].forEach(([ax]) => { this.rr(ctx, ax, 29, 8, 22, 4); ctx.fillStyle = this.vGrad(ctx, 29, 51, this.light(this.dark(c, 16), 4), this.dark(c, 22)); ctx.fill(); });
-    // tělo
-    const bp = () => this.rr(ctx, 13, 25, 38, 30, 7);
-    bp(); ctx.fillStyle = this.vGrad(ctx, 25, 55, this.light(c, 14), this.dark(c, 18)); ctx.fill();
-    this.litEdge(ctx, bp, 64);
-    // hlava
-    const skin = boss.id === 'haades' ? this.dark(c, 30) : 0xe7b083;
-    const hp = () => { ctx.beginPath(); ctx.arc(32, 14, 12, 0, 7); ctx.closePath(); };
-    hp(); const hg = ctx.createRadialGradient(28, 10, 2, 32, 14, 14);
-    hg.addColorStop(0, this.cssOf(this.light(skin, 12))); hg.addColorStop(1, this.cssOf(this.dark(skin, 14)));
-    ctx.fillStyle = hg; ctx.fill();
+    // ---------- Churaq Sputnik — namakaný plešoun s baseballkou ----------
+    if (id === 'churaq') {
+      const skin = 0xe0a878;
+      [[19], [37]].forEach(([lx]) => { this.rr(ctx, lx, 50, 11, 14, 3); ctx.fillStyle = this.vGrad(ctx, 50, 63, 0x2a2030, 0x140c18); ctx.fill(); });
+      // obří bicepsy
+      [[8], [56]].forEach(([cx], i) => {
+        ctx.beginPath(); ctx.ellipse(cx, 39, 6.5, 12, i ? -0.18 : 0.18, 0, 7);
+        const g = ctx.createRadialGradient(cx, 35, 1, cx, 39, 13);
+        g.addColorStop(0, this.cssOf(this.light(skin, 12))); g.addColorStop(1, this.cssOf(this.dark(skin, 18)));
+        ctx.fillStyle = g; ctx.fill();
+      });
+      // ŠIROKÁ ramena (lichoběžník) + bílé tílko
+      const bp = () => { ctx.beginPath(); ctx.moveTo(10, 31); ctx.lineTo(54, 31); ctx.lineTo(48, 55); ctx.lineTo(16, 55); ctx.closePath(); };
+      bp(); ctx.fillStyle = this.vGrad(ctx, 31, 55, 0xf2f2f5, 0xc6c6d2); ctx.fill();
+      ctx.fillStyle = this.cssOf(this.dark(skin, 4)); // výstřih → odhalená hruď
+      ctx.beginPath(); ctx.moveTo(27, 31); ctx.lineTo(37, 31); ctx.lineTo(34, 43); ctx.lineTo(30, 43); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = this.cssOf(skin); // svaly nad tílkem (ramena)
+      ctx.beginPath(); ctx.ellipse(15, 32, 6, 4, 0, 0, 7); ctx.ellipse(49, 32, 6, 4, 0, 0, 7); ctx.fill();
+      this.litEdge(ctx, bp, 64);
+      // tlustý krk + plešatá hlava
+      ctx.fillStyle = this.cssOf(this.dark(skin, 8)); ctx.fillRect(27, 21, 10, 8);
+      headFill(32, 14, 11, skin);
+      ctx.fillStyle = 'rgba(255,255,255,0.28)'; ctx.beginPath(); ctx.ellipse(28, 9, 4, 2.2, -0.5, 0, 7); ctx.fill(); // lesk lebky
+      ctx.strokeStyle = this.cssOf(0x3a2a1a); ctx.lineWidth = 1.6; // naštvané obočí
+      ctx.beginPath(); ctx.moveTo(26, 11); ctx.lineTo(31, 13); ctx.moveTo(38, 11); ctx.lineTo(33, 13); ctx.stroke();
+      ctx.fillStyle = this.cssOf(0x141022); ctx.beginPath(); ctx.arc(28, 14, 1.7, 0, 7); ctx.arc(36, 14, 1.7, 0, 7); ctx.fill();
+      ctx.fillStyle = 'rgba(60,40,30,0.4)'; ctx.fillRect(27, 18, 10, 3); // strniště
+      circEdge(32, 14, 11);
+      // velká baseballka přes rameno
+      ctx.save(); ctx.translate(52, 25); ctx.rotate(-0.6);
+      const bg = ctx.createLinearGradient(-4, 0, 5, 0); bg.addColorStop(0, '#b58040'); bg.addColorStop(1, '#7a4f22');
+      ctx.fillStyle = bg; this.rr(ctx, -4, -30, 9, 34, 4); ctx.fill();
+      ctx.fillStyle = '#5a3a18'; this.rr(ctx, -3, -1, 7, 7, 2); ctx.fill();
+      ctx.restore();
+      return;
+    }
 
-    if (boss.id === 'kato') {
-      ctx.fillStyle = this.cssOf(0x9a9486); ctx.fillRect(23, 16, 18, 8); // vousy
-      ctx.fillStyle = this.cssOf(0x4a3a20); this.rr(ctx, 19, 0, 26, 7, 2); ctx.fill(); ctx.fillRect(16, 5, 32, 3);
-    } else if (boss.id === 'rohony') {
-      ctx.fillStyle = this.cssOf(this.dark(c, 12)); ctx.beginPath(); ctx.arc(32, 13, 12, Math.PI, 0, false); ctx.fill();
-      ctx.strokeStyle = this.cssOf(0xc77bff); ctx.lineWidth = 1.6;
-      ctx.beginPath(); ctx.moveTo(26, 11); ctx.lineTo(26, 20); ctx.moveTo(37, 13); ctx.lineTo(42, 13); ctx.moveTo(31, 19); ctx.lineTo(34, 19); ctx.stroke();
-    } else if (boss.id === 'churaq') {
-      ctx.fillStyle = this.cssOf(0x222244); this.rr(ctx, 20, 1, 24, 7, 2); ctx.fill(); ctx.fillRect(20, 7, 30, 3);
-      ctx.save(); ctx.translate(50, 22); ctx.rotate(-0.7); // baseballka přes rameno
-      ctx.fillStyle = this.cssOf(0x8a5a2b); this.rr(ctx, -3.5, -24, 8, 28, 3); ctx.fill(); ctx.restore();
-    } else if (boss.id === 'haades') {
-      ctx.fillStyle = this.cssOf(this.dark(c, 6)); ctx.beginPath(); ctx.arc(32, 13, 13, 0, 7); ctx.fill(); // kápě
-      ctx.fillStyle = this.cssOf(0xab44ff);
-      ctx.beginPath(); ctx.arc(27, 13, 2.4, 0, 7); ctx.arc(37, 13, 2.4, 0, 7); ctx.fill();
-      ctx.fillStyle = 'rgba(180,120,255,0.4)'; ctx.beginPath(); ctx.arc(27, 13, 4, 0, 7); ctx.arc(37, 13, 4, 0, 7); ctx.fill();
+    // ---------- Haades — vyžilý/feťácký vyzáblý chlap ----------
+    if (id === 'haades') {
+      const c = boss.color, skin = 0xb7b09c; // nezdravě bledá
+      [[24], [34]].forEach(([lx]) => { this.rr(ctx, lx, 50, 6, 13, 2); ctx.fillStyle = this.vGrad(ctx, 50, 63, 0x222236, 0x12121f); ctx.fill(); });
+      [[16], [44]].forEach(([ax]) => { this.rr(ctx, ax, 30, 5, 22, 2.5); ctx.fillStyle = this.vGrad(ctx, 30, 52, this.light(skin, 4), this.dark(skin, 20)); ctx.fill(); }); // kostnaté ruce
+      const bp = () => this.rr(ctx, 19, 28, 26, 28, 6); // úzké tělo, špinavé hadry
+      bp(); ctx.fillStyle = this.vGrad(ctx, 28, 56, this.light(c, 10), this.dark(c, 16)); ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,0.28)'; ctx.lineWidth = 1; // propadlý hrudník
+      ctx.beginPath(); ctx.moveTo(24, 38); ctx.lineTo(40, 38); ctx.moveTo(25, 43); ctx.lineTo(39, 43); ctx.stroke();
+      this.litEdge(ctx, bp, 64);
+      ctx.fillStyle = this.cssOf(this.dark(skin, 18)); ctx.fillRect(29, 20, 6, 8); // hubený krk
+      const hp = () => { ctx.beginPath(); ctx.ellipse(32, 13, 9.5, 11, 0, 0, 7); };
+      hp(); const hg = ctx.createRadialGradient(29, 9, 1, 32, 13, 13);
+      hg.addColorStop(0, this.cssOf(this.light(skin, 8))); hg.addColorStop(1, this.cssOf(this.dark(skin, 22)));
+      ctx.fillStyle = hg; ctx.fill();
+      ctx.fillStyle = 'rgba(40,30,45,0.35)'; // propadlé tváře
+      ctx.beginPath(); ctx.ellipse(26, 16, 2.4, 4, 0, 0, 7); ctx.ellipse(38, 16, 2.4, 4, 0, 0, 7); ctx.fill();
+      ctx.fillStyle = this.cssOf(0x2a2630); // mastné stringy vlasy
+      ctx.beginPath(); ctx.arc(32, 9, 10, Math.PI, 0, false); ctx.fill();
+      ctx.fillRect(22, 8, 3.5, 12); ctx.fillRect(40, 8, 3.5, 11);
+      // vpadlé svítící oči (tmavé důlky + zářící zorničky)
+      ctx.fillStyle = 'rgba(8,6,12,0.85)';
+      ctx.beginPath(); ctx.ellipse(28, 13, 3.2, 3.6, 0, 0, 7); ctx.ellipse(37, 13, 3.2, 3.6, 0, 0, 7); ctx.fill();
+      [[28, 13], [37, 13]].forEach(([x, y]) => {
+        const e = ctx.createRadialGradient(x, y, 0, x, y, 3); e.addColorStop(0, '#d8b0ff'); e.addColorStop(1, 'rgba(150,80,255,0)');
+        ctx.fillStyle = e; ctx.beginPath(); ctx.arc(x, y, 3, 0, 7); ctx.fill();
+        ctx.fillStyle = '#ab44ff'; ctx.beginPath(); ctx.arc(x, y, 1.3, 0, 7); ctx.fill();
+      });
+      ctx.fillStyle = 'rgba(20,10,20,0.6)'; ctx.beginPath(); ctx.ellipse(32, 20, 2.4, 1.5, 0, 0, 7); ctx.fill(); // pootevřená ústa
+      this.litEdge(ctx, hp, 64);
+      return;
     }
-    if (boss.id !== 'haades') {
-      ctx.fillStyle = this.cssOf(0x141022);
-      ctx.beginPath(); ctx.arc(28, 12, 1.8, 0, 7); ctx.arc(36, 12, 1.8, 0, 7); ctx.fill();
+
+    // ---------- Kato — bezdomovec (otrhaný kabát, vous, čepice, flaška) ----------
+    if (id === 'kato') {
+      const c = boss.color, skin = 0xceA476;
+      [[22], [34]].forEach(([lx]) => { this.rr(ctx, lx, 50, 9, 13, 2); ctx.fillStyle = this.vGrad(ctx, 50, 63, 0x4a4032, 0x2a241c); ctx.fill(); });
+      [[10], [47]].forEach(([ax]) => { this.rr(ctx, ax, 31, 7, 20, 3); ctx.fillStyle = this.vGrad(ctx, 31, 51, this.light(c, 4), this.dark(c, 20)); ctx.fill(); });
+      // dlouhý otrhaný kabát s roztřepeným dolním okrajem
+      const bp = () => {
+        ctx.beginPath(); ctx.moveTo(13, 26); ctx.lineTo(51, 26); ctx.lineTo(53, 52);
+        ctx.lineTo(49, 57); ctx.lineTo(46, 52); ctx.lineTo(42, 58); ctx.lineTo(38, 52);
+        ctx.lineTo(34, 57); ctx.lineTo(30, 52); ctx.lineTo(26, 58); ctx.lineTo(22, 52);
+        ctx.lineTo(18, 57); ctx.lineTo(11, 52); ctx.closePath();
+      };
+      bp(); ctx.fillStyle = this.vGrad(ctx, 26, 56, this.light(c, 8), this.dark(c, 20)); ctx.fill();
+      ctx.fillStyle = this.cssOf(0x5a6a3a); this.rr(ctx, 18, 34, 9, 8, 1); ctx.fill(); // záplaty
+      ctx.fillStyle = this.cssOf(0x6a4a3a); this.rr(ctx, 35, 40, 8, 7, 1); ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(32, 28); ctx.lineTo(32, 50); ctx.stroke();
+      this.litEdge(ctx, bp, 64);
+      headFill(32, 15, 11, skin);
+      ctx.fillStyle = this.cssOf(0x3a5a4a); this.rr(ctx, 21, 3, 22, 8, 3); ctx.fill(); // pletená čepice
+      ctx.fillStyle = 'rgba(255,255,255,0.10)'; ctx.fillRect(22, 5, 20, 1.5);
+      ctx.strokeStyle = this.cssOf(0x6a6258); ctx.lineWidth = 1.4; // chomáče vlasů
+      [[20, 12], [20, 16], [44, 12], [44, 16]].forEach(([x, y]) => { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + (x < 32 ? -3 : 3), y + 3); ctx.stroke(); });
+      ctx.fillStyle = this.cssOf(0x9a9488); // velký rozcuchaný šedý vous
+      ctx.beginPath(); ctx.moveTo(23, 17); ctx.quadraticCurveTo(24, 28, 32, 29); ctx.quadraticCurveTo(40, 28, 41, 17);
+      ctx.quadraticCurveTo(38, 23, 32, 23); ctx.quadraticCurveTo(26, 23, 23, 17); ctx.fill();
+      ctx.fillStyle = this.cssOf(0x141022); ctx.beginPath(); ctx.arc(28, 14, 1.6, 0, 7); ctx.arc(36, 14, 1.6, 0, 7); ctx.fill();
+      circEdge(32, 15, 11);
+      ctx.fillStyle = this.cssOf(0x6a5a3a); this.rr(ctx, 46, 40, 8, 12, 2); ctx.fill(); // flaška v pytlíku
+      ctx.fillStyle = this.cssOf(0x3a6a4a); this.rr(ctx, 48, 36, 4, 6, 1); ctx.fill();
+      return;
     }
-    this.litEdge(ctx, hp, 64);
+
+    // ---------- Rohony — rapper s face tattoo (mikina, zlatý řetěz, kšiltovka) ----------
+    const c = boss.color, skin = 0xc89070;
+    [[22], [34]].forEach(([lx]) => { this.rr(ctx, lx, 50, 9, 13, 3); ctx.fillStyle = this.vGrad(ctx, 50, 63, 0x1a1a30, 0x0c0c18); ctx.fill(); });
+    [[11], [45]].forEach(([ax]) => { this.rr(ctx, ax, 30, 8, 22, 4); ctx.fillStyle = this.vGrad(ctx, 30, 52, this.light(this.dark(c, 10), 4), this.dark(c, 24)); ctx.fill(); });
+    const bp = () => this.rr(ctx, 14, 27, 36, 29, 7); // mikina s kapucí
+    bp(); ctx.fillStyle = this.vGrad(ctx, 27, 56, this.light(c, 12), this.dark(c, 18)); ctx.fill();
+    ctx.fillStyle = this.cssOf(this.dark(c, 8)); this.rr(ctx, 22, 44, 20, 8, 3); ctx.fill(); // kapsa
+    ctx.strokeStyle = '#e8e8f0'; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(28, 30); ctx.lineTo(27, 40); ctx.moveTo(36, 30); ctx.lineTo(37, 40); ctx.stroke(); // šňůrky
+    this.litEdge(ctx, bp, 64);
+    ctx.strokeStyle = '#ffd24a'; ctx.lineWidth = 2; // zlatý řetěz (bling)
+    ctx.beginPath(); ctx.arc(32, 34, 9, 0.16 * Math.PI, 0.84 * Math.PI, false); ctx.stroke();
+    ctx.fillStyle = '#ffe680'; ctx.beginPath(); ctx.arc(32, 43, 3, 0, 7); ctx.fill();
+    ctx.fillStyle = '#b8901a'; ctx.beginPath(); ctx.arc(32, 43, 1.4, 0, 7); ctx.fill();
+    ctx.fillStyle = this.cssOf(this.dark(skin, 12)); ctx.fillRect(28, 21, 8, 7); // krk
+    headFill(32, 14, 11, skin);
+    ctx.fillStyle = this.cssOf(0x1a1a28); this.rr(ctx, 21, 2, 22, 8, 3); ctx.fill(); // snapback koruna
+    ctx.fillStyle = this.cssOf(0x101018); this.rr(ctx, 30, 8, 20, 3, 1.5); ctx.fill(); // rovný kšilt do strany
+    ctx.fillStyle = this.cssOf(c); ctx.fillRect(24, 4, 4, 4); // logo
+    // face tattoos
+    ctx.strokeStyle = this.cssOf(0x6a2a9a); ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.moveTo(27, 17); ctx.lineTo(27, 20); ctx.stroke(); // slza
+    ctx.fillStyle = this.cssOf(0x6a2a9a); ctx.fillRect(36, 17, 1.4, 3);
+    ctx.strokeStyle = this.cssOf(0x9a3ad0); ctx.beginPath(); ctx.arc(40, 15, 1.6, 0, 7); ctx.stroke(); // symbol na tváři
+    ctx.fillStyle = this.cssOf(0x141022); ctx.beginPath(); ctx.arc(28, 15, 1.7, 0, 7); ctx.arc(36, 15, 1.7, 0, 7); ctx.fill();
+    ctx.fillStyle = '#ffd24a'; this.rr(ctx, 29, 18, 6, 2.2, 0.6); ctx.fill(); // zlatý úsměv (grills)
+    circEdge(32, 14, 11);
   }
 
   // ============ PODLAHA — temný klubový parket (tile 128) ============

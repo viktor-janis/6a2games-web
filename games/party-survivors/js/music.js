@@ -12,7 +12,7 @@
 window.PS = window.PS || {};
 
 PS.Music = {
-  vol: 0.45,        // cílová hlasitost (sedí pod SFX)
+  vol: 0.225,       // cílová hlasitost (sedí pod SFX)
   crossfade: 4.5,   // s — překryv (crossfade) na konci tracku
   fadeIn: 2.0,      // s — náběh úplně prvního tracku
   preloadLead: 7,   // s před koncem začni přednačítat další track
