@@ -19,36 +19,46 @@ PS.Spawner = class Spawner {
   constructor(scene) {
     this.scene = scene;
     this.elapsed = 0;
-    this.acc = 0;
     this.lastTier = 0;
+    this.spawnAcc = 0;                  // akumulátor stálého proudu (nepřátel/s)
+    const B = PS.BALANCE;
+    this.surgeUntil = 0;
+    this.nextSurge = B.surge.period * (0.5 + Math.random() * 0.4); // první vlnka ~25-45 s
+    this.nextHorde = B.horde.period * (0.8 + Math.random() * 0.4); // první horda ~2,1-3 min
   }
 
   tier() {
     return Math.floor(this.elapsed / PS.BALANCE.tierSeconds) + 1;
   }
 
-  // interval mezi vlnami — akce už od začátku, ke 13. minutě maximální tlak
-  interval() {
-    return Phaser.Math.Clamp(1.6 - this.tier() * 0.10 - this.elapsed / 950, 0.4, 1.6);
-  }
-
-  // velikost vlny — základ 2 (první minuty nesmí být nuda), růst s tierem a časem
-  waveSize() {
-    return 2 + Math.floor(this.tier() * 0.5) + Math.floor(this.elapsed / 270);
-  }
-
+  // Nerovnoměrný spawn (VS styl): slabší STÁLÝ proud podle `spawnRate` +
+  // krátké VLNKY (`surge`) + občas velká telegrafovaná HORDA (`spawnHorde`).
   update(dt) {
     this.elapsed += dt;
+    const B = PS.BALANCE, now = this.elapsed;
     const tier = this.tier();
-    if (tier > this.lastTier) {
-      this.lastTier = tier;
-      this.onNewTier(tier);
+    if (tier > this.lastTier) { this.lastTier = tier; this.onNewTier(tier); }
+
+    // malá vlnka — krátké zvýšení proudu (občasný nápor mezi klidem)
+    if (now >= this.nextSurge) {
+      this.surgeUntil = now + B.surge.dur;
+      this.nextSurge = now + B.surge.period * (0.8 + Math.random() * 0.5);
     }
-    this.acc += dt;
-    if (this.acc >= this.interval()) {
-      this.acc = 0;
-      this.spawnWave(tier);
+    // velká horda — jednorázový soustředěný nápor s telegrafem
+    if (now >= this.nextHorde) {
+      this.nextHorde = now + B.horde.period * (0.85 + Math.random() * 0.35);
+      this.spawnHorde(tier);
     }
+
+    // stálý proud podle rate (nepřátel/s); během vlnky × surge.mult
+    const surge = now < this.surgeUntil ? B.surge.mult : 1;
+    this.spawnAcc += B.spawnRate(now) * surge * dt;
+    let budget = B.maxEnemies - this.scene.enemies.countActive(true);
+    while (this.spawnAcc >= 1 && budget > 0) {
+      this.spawnAcc -= 1; budget--;
+      this.spawnTrickle(tier);
+    }
+    if (this.spawnAcc > 4) this.spawnAcc = 4; // strop akumulace (po stropu/pauze nenaskáče naráz)
   }
 
   onNewTier(tier) {
@@ -64,16 +74,35 @@ PS.Spawner = class Spawner {
     if (B >= 5 && B % 5 === 0) this.spawnBoss(B);
   }
 
-  // mix vlny: 60 % aktuální tier, 25 % tier-1, 15 % tier-2
-  spawnWave(tier) {
-    const alive = this.scene.enemies.countActive(true);
-    const count = Math.min(this.waveSize(), PS.BALANCE.maxEnemies - alive);
+  // jeden nepřítel ze stálého proudu — mix sil 60/25/15 %, intercept směru pohybu
+  spawnTrickle(tier) {
+    const r = Math.random();
+    const s = r < 0.6 ? tier : r < 0.85 ? Math.max(1, tier - 1) : Math.max(1, tier - 2);
+    const pos = this.ringPosition(490, 595, true); // bias do směru pohybu — nelze utíkat donekonečna
+    this.spawnEnemyAt(s, pos.x, pos.y);
+  }
+
+  // velká HORDA — soustředěný nápor z jednoho směru (přednostně kam hrdina míří,
+  // aby nešel jen obejít) + telegraf (hláška, otřes kamery, zvuk). Roste s tierem.
+  spawnHorde(tier) {
+    const B = PS.BALANCE, m = B.mapSize, scene = this.scene;
+    const count = Math.min(B.horde.size(tier), B.maxEnemies - scene.enemies.countActive(true));
+    if (count <= 0) return;
+    const v = scene.player.body && scene.player.body.velocity;
+    const base = (v && (Math.abs(v.x) > 10 || Math.abs(v.y) > 10))
+      ? Math.atan2(v.y, v.x) : Math.random() * Math.PI * 2;
     for (let i = 0; i < count; i++) {
+      const a = base + (Math.random() - 0.5) * 1.4; // oblouk ±0,7 rad kolem směru
+      const d = 470 + Math.random() * 190;
       const r = Math.random();
-      const strength = r < 0.6 ? tier : r < 0.85 ? Math.max(1, tier - 1) : Math.max(1, tier - 2);
-      const pos = this.ringPosition(490, 595, true); // bias do směru pohybu — nelze utíkat donekonečna
-      this.spawnEnemyAt(strength, pos.x, pos.y);
+      const s = r < 0.5 ? tier : r < 0.8 ? Math.max(1, tier - 1) : Math.max(1, tier - 2);
+      this.spawnEnemyAt(s,
+        Phaser.Math.Clamp(scene.player.x + Math.cos(a) * d, 30, m - 30),
+        Phaser.Math.Clamp(scene.player.y + Math.sin(a) * d, 30, m - 30));
     }
+    scene.events.emit('announce', { text: 'VALÍ SE DAV!', color: PS.COLORS.orange });
+    scene.cameras.main.shake(220, 0.004);
+    PS.Audio.horde();
   }
 
   spawnEnemyAt(strength, x, y) {

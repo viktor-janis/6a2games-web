@@ -50,7 +50,12 @@ PS.Keys = {
 
 // ---------- UI helpery ----------
 PS.UI = {
-  FONT: '"Press Start 2P", "Courier New", monospace',
+  // Baloo 2 — baculaté párty písmo (signature styl hry). Diakritika je
+  // plnohodnotná (háčky/čárky sedí nad písmenem, nezmenšují ho). Načítají se
+  // jen tučné řezy (600/700/800), takže i bez explicitní váhy je text tučný.
+  FONT: '"Baloo 2", "Trebuchet MS", system-ui, sans-serif',
+  W_BODY: '700',   // běžný text
+  W_BOLD: '800',   // nadpisy / tlačítka
 
   hex(n) { return '#' + n.toString(16).padStart(6, '0'); },
 
@@ -66,16 +71,16 @@ PS.UI = {
   title(scene, x, y, str, size, color) {
     const colStr = this.hex(color);
     const t = scene.add.text(x, y, str, {
-      fontFamily: this.FONT, fontSize: size + 'px', color: colStr,
+      fontFamily: this.FONT, fontStyle: this.W_BOLD, fontSize: size + 'px', color: colStr,
     }).setOrigin(0.5);
-    t.setShadow(0, 0, colStr, Math.max(4, Math.round(size / 6)), true, true);
+    t.setShadow(0, 0, colStr, Math.max(6, Math.round(size / 4)), true, true);
     return t;
   },
 
   // Obyčejný text
   text(scene, x, y, str, size, colorStr, origin = 0.5) {
     return scene.add.text(x, y, str, {
-      fontFamily: this.FONT, fontSize: size + 'px', color: colorStr, align: 'center',
+      fontFamily: this.FONT, fontStyle: this.W_BODY, fontSize: size + 'px', color: colorStr, align: 'center',
     }).setOrigin(origin);
   },
 
@@ -88,11 +93,11 @@ PS.UI = {
     const container = scene.add.container(x, y);
     const bg = scene.add.rectangle(0, 0, w, h, color, 0.05).setStrokeStyle(3, color);
     const txt = scene.add.text(0, 0, label, {
-      fontFamily: this.FONT, fontSize: fontSize + 'px', color: colStr,
+      fontFamily: this.FONT, fontStyle: this.W_BOLD, fontSize: fontSize + 'px', color: colStr,
     }).setOrigin(0.5);
     txt.setShadow(0, 0, colStr, 8, true, true);
     const arrow = scene.add.text(-w / 2 + 14, 0, '>', {
-      fontFamily: this.FONT, fontSize: fontSize + 'px', color: this.hex(PS.COLORS.dark),
+      fontFamily: this.FONT, fontStyle: this.W_BOLD, fontSize: fontSize + 'px', color: this.hex(PS.COLORS.dark),
     }).setOrigin(0, 0.5).setVisible(false);
     container.add([bg, txt, arrow]);
 
@@ -138,7 +143,7 @@ PS.UI = {
   toast(scene, msg) {
     const { width: W, height: H } = scene.scale;
     const t = scene.add.text(W / 2, H - 60, msg, {
-      fontFamily: this.FONT, fontSize: '14px', color: this.hex(PS.COLORS.yellow),
+      fontFamily: this.FONT, fontStyle: this.W_BODY, fontSize: '14px', color: this.hex(PS.COLORS.yellow),
       backgroundColor: '#1a0033', padding: { x: 16, y: 10 },
     }).setOrigin(0.5).setDepth(1000).setAlpha(0);
     scene.tweens.add({

@@ -9,7 +9,7 @@ PS.scenes = [];
 
 // ---------- Paleta (ladí s neonovým stylem webu) ----------
 PS.COLORS = {
-  bg:      0x050010,
+  bg:      0x030008, // temná klubová čerň
   pink:    0xff2bd6,
   cyan:    0x00ffff,
   yellow:  0xffe600,
@@ -18,7 +18,7 @@ PS.COLORS = {
   purple:  0xb44cff,
   red:     0xff3b3b,
   white:   0xffffff,
-  dark:    0x050010,
+  dark:    0x030008,
   confetti: [0xff2bd6, 0x00ffff, 0xffe600, 0x39ff14, 0xff9100, 0xb44cff],
 };
 
@@ -28,6 +28,26 @@ PS.STORAGE = {
   record: 'ps_record', // rekord — JSON { time, name } (od zavedení jmen)
   name: 'ps_name',     // naposledy zadané herní jméno (předvyplňuje se)
 };
+
+// ---------- Hudba na pozadí (hraje JEN ve hře, náhodně, s crossfade) ----------
+// Komprimováno z music/*.wav na 128 kbps MP3 (viz README + .gitignore mastery).
+// Pořadí pole je jedno — PS.Music vybírá náhodně. Streamuje se po jednom tracku.
+PS.MUSIC = [
+  'music/bazina.mp3',
+  'music/bon-apetit.mp3',
+  'music/cloud-9.mp3',
+  'music/fotbalky.mp3',
+  'music/frystajl.mp3',
+  'music/haribo.mp3',
+  'music/kaar-almost-freestyle.mp3',
+  'music/krabicka.mp3',
+  'music/lanova-draha.mp3',
+  'music/navsteva-lepsi-spolecnosti.mp3',
+  'music/nikdy-se-nevyseru-2.mp3',
+  'music/poskit.mp3',
+  'music/shake-fidget.mp3',
+  'music/x-treme.mp3',
+];
 
 // ---------- Hrdinové (list „Hrdinové") ----------
 // intro1/intro2 = doslovné texty ze sloupců „Intro 1. řádek" / „Intro 2. řádek"
@@ -71,7 +91,7 @@ PS.HEROES = [
   {
     id: 'fadadevada', name: 'fadadevada', attackId: 'dym', color: 0x9fb8c8,
     intro1: 'Primární útok: vypouštění dýmu',
-    intro2: 'Speciální schopnost: Regeneruje 1 HP každou sekundu.',
+    intro2: 'Speciální schopnost: Regeneruje navíc 1 HP každou sekundu.',
     passive: { type: 'regen', value: 1 },
   },
   {
@@ -90,8 +110,9 @@ PS.HEROES = [
 
 // ---------- Útoky — rebalanc ve stylu Vampire Survivors ----------
 // Každý útok má unikátní profil. Osy různorodosti:
-//   aim:   'facing'  = míří kam je hrdina otočený (blití, lahvác, pivo)
-//          'nearest' = míří na nejbližšího nepřítele (chcaní, vajgly, list)
+//   aim:   'facing'  = míří kam je hrdina otočený (blití, pivo)
+//          'nearest' = míří na nejbližšího nepřítele (chcaní, vajgly, list);
+//                      lahvác = náhodný z několika nejbližších (auto-cíl)
 //          'self'    = pevný vzor kolem hrdiny (tagování, dým, panáky)
 //   DMG/CD profil: nuke (lahvác 34 / 3,2 s) … rychlopalba (vajgly 8 / 0,5 s)
 //   multi-target:  pierce (chcaní) / odrazy mezi nepřáteli (vajgly) /
@@ -106,29 +127,31 @@ PS.ATTACKS = {
     name: 'blití', archetype: 'cone', aim: 'facing',
     anim: 'zelený proud směrem od hlavy hrdiny',
     desc: 'Kužel ve směru pohledu hrdiny. Nižší DMG, ale zasažené otravuje — dostávají poškození v čase.',
-    dmg: 6, tick: 0.35, angle: 55, range: 90, cd: 2.4, duration: 1.4,
+    dmg: 7, tick: 0.35, angle: 62, range: 95, cd: 2.4, duration: 1.4,
     dot: { dps: 4, dur: 2.5 }, knockback: 0, pierce: Infinity,
   },
   chcani: {
     name: 'chcaní', archetype: 'beam', aim: 'nearest',
     anim: 'žlutý proud z pasu hrdiny mířící k nejbližšímu nepříteli; zanechává kaluž',
-    desc: 'Nejdelší dosah: paprsek na nejbližšího nepřítele probodne až 4 v řadě. Kaluž zpomaluje.',
-    dmg: 12, cd: 1.0, range: 145, width: 22, pierce: 4,
+    desc: 'Nejdelší dosah: paprsek na nejbližšího nepřítele probodne až 5 v řadě. Kaluž zpomaluje.',
+    dmg: 16, cd: 1.0, range: 145, width: 22, pierce: 5,
     puddle: { r: 28, dur: 3, slow: 0.30 }, knockback: 0,
   },
   tagovani: {
     name: 'tagování', archetype: 'zone', aim: 'self',
     anim: 'hrdina sprejem stříkne barevný tag na zem, kde právě stojí',
     desc: 'Položí zónu v místě, kde hrdina stojí. Kdo v ní je, dostává tikající DMG. Max 2 zóny.',
-    cd: 3.8, r: 52, dur: 6, dmg: 9, tick: 0.5, maxZones: 2, knockback: 0,
+    cd: 3.8, r: 46, dur: 6, dmg: 6, tick: 0.5, maxZones: 2, knockback: 0,
   },
   lahvac: {
-    name: 'házení lahváčem', archetype: 'lob', aim: 'facing',
+    name: 'házení lahváčem', archetype: 'lob', aim: 'nearest',
     anim: 'hrdina obloukem hodí plný lahváč, který se po dopadu roztříští na střepy',
-    desc: 'Nuke: nejvyšší DMG, nejdelší cooldown. Letí pevnou vzdálenost ve směru pohledu, přímý zásah omračuje.',
-    dmg: 34, cd: 3.2, range: 170,
-    burst: { r: 50, dmg: 14 },
-    shards: { r: 35, dur: 4, dmg: 4, tick: 0.5 },
+    desc: 'Nuke: nejvyšší DMG, dlouhý cooldown. Sám zamíří na náhodného z několika nejbližších nepřátel; přímý zásah omračuje, střepy plošně zasáhnou okolí dopadu.',
+    dmg: 34, cd: 3.2,
+    targetRange: 240, targetPool: 4, // auto-cíl: náhodný z N nejbližších v dosahu
+    hitR: 16,                        // poloměr přímého zásahu (plný DMG + stun)
+    burst: { r: 52, dmg: 13 },
+    shards: { r: 40, dur: 4, dmg: 4, tick: 0.5 },
     knockback: 2, // střední
     stun: { chance: 0.20, dur: 0.6 },
   },
@@ -150,19 +173,19 @@ PS.ATTACKS = {
     name: 'vypouštění dýmu', archetype: 'aura', aim: 'self',
     anim: 'šedý oblak dýmu z vaporizéru trvale obklopující hrdinu',
     desc: 'Trvalá aura kolem hrdiny: nejnižší DMG, ale bez cooldownu — tiká pořád a zpomaluje.',
-    dmg: 3, tick: 0.5, r: 63, slow: 0.15, cd: 0, knockback: 0,
+    dmg: 3, tick: 0.5, r: 72, slow: 0.15, cd: 0, knockback: 0,
   },
   panaky: {
     name: 'kopání panáků', archetype: 'orbit', aim: 'self',
     anim: 'štamprlata (panáky) vykopnutá do orbitu, krouží kolem hrdiny',
-    desc: 'Obranný perimetr: 2 panáky krouží kolem hrdiny — vysoký kontaktní DMG a malý odhoz.',
-    count: 2, r: 56, period: 1.4, dmg: 13, rehit: 0.6, knockback: 1, // malý
+    desc: 'Obranný perimetr: 2 panáky krouží kolem hrdiny — stálý kontaktní DMG a malý odhoz.',
+    count: 2, r: 56, period: 1.4, dmg: 8, rehit: 0.95, knockback: 1, // malý
   },
   list: {
     name: 'facka listem', archetype: 'slap', aim: 'nearest',
     anim: 'hrdina švihne velkým marihuanovým listem do nejbližšího nepřítele',
     desc: 'Rychlé facky nejbližšímu (max 2 cíle): obrovský knockback a 25% šance na stun. Krátký dosah.',
-    dmg: 16, cd: 0.85, angle: 50, range: 70, targets: 2,
+    dmg: 22, cd: 0.78, angle: 50, range: 78, targets: 2,
     knockback: 4, // obrovský
     stun: { chance: 0.25, dur: 0.5 },
   },
@@ -185,7 +208,7 @@ PS.WEAPON_PERKS = {
     { id: 'tag', name: 'další tag', cap: 2, desc: 'Na zemi může ležet o 1 tag víc.' },
   ],
   lahvac: [
-    { id: 'runda', name: 'hod navíc', cap: 2, desc: 'Hází o 1 lahváč víc (vějíř do stran).' },
+    { id: 'runda', name: 'hod navíc', cap: 2, desc: 'Hází o 1 lahváč víc (na dalšího nepřítele).' },
   ],
   vajgly: [
     { id: 'odraz',   name: 'lepivý vajgl',     cap: 2, desc: 'Vajgl se odrazí o 1 nepřítele dál.' },
@@ -261,7 +284,9 @@ PS.BOSSES = [
 
 // ---------- Balanc — výchozí rámec ----------
 PS.BALANCE = {
-  player: { hp: 100, speed: 126, magnet: 35 }, // rychlosti+vzdálenosti globálně ×0,7
+  // baseRegen = velmi slabá základní regenerace HP/s, kterou mají VŠICHNI hrdinové
+  // (0,5 = 1 HP za 2 s). Pasivka/upgrade regenerace se přičítá nad tento základ.
+  player: { hp: 100, speed: 126, magnet: 35, baseRegen: 0.5 }, // rychlosti+vzdálenosti globálně ×0,7
 
   // Nepřítel síly s (7× — síla 1 umírá na jeden zásah většiny útoků).
   // HP/DMG mírně sníženy jako kompenzace pomalejší XP křivky (hrdina má
@@ -274,15 +299,26 @@ PS.BALANCE = {
   bossHp:  (B) => 90 * B,
   bossDmg: (B) => 8 + 2 * B,
 
-  // Časová osa obtížnosti: nový tier každých ~70 s => tier ~12 ve 13. minutě
-  // (svižnější tempo — hra se ztěžuje rychleji, bossové à ~5,8 min)
-  tierSeconds: 70,
+  // Časová osa obtížnosti: nový tier každých ~85 s => pomalejší růst síly
+  // nepřátel (HP/dmg), aby hra nezhoustla moc brzy; bossové à ~7 min
+  // (boss síly B se spawne při tieru B−2, tj. tiery 3/8/13… → ~2,8 / 9,5 / 16 min).
+  tierSeconds: 85,
 
-  // XP potřebné na level N — start jako dřív (8, 22), ale přírůstek roste
-  // s KAŽDÝM levelem (o +8 víc než předchozí: 14, 22, 30, 38…) => kvadratický
-  // růst. Vyvažuje vyšší příjem XP z hustšího spawnu — tempo levelování klesá
-  // celou hru a nikdy se „nerozjede" (VS styl).
-  xpForLevel: (n) => 8 + 10 * (n - 1) + 4 * (n - 1) * (n - 1),
+  // XP potřebné na level N — mírně snazší než dřív (8, 20, 38, 62…), protože
+  // nepřátel je teď méně (nižší příjem XP). Přírůstek pořád roste s každým
+  // levelem (kvadraticky) => tempo levelování klesá celou hru, nikdy se
+  // „nerozjede" do nesmrtelnosti (VS styl).
+  xpForLevel: (n) => 8 + 9 * (n - 1) + 3 * (n - 1) * (n - 1),
+
+  // ---------- Spawn — NEROVNOMĚRNÝ proud (VS styl) ----------
+  // Slabší STÁLÝ proud `spawnRate` (nepřátel/s) + krátké VLNKY (`surge`) +
+  // občas velká telegrafovaná HORDA (`horde`). Cíl: lehčí early, obtížné až
+  // ~10. min, dobrý hráč 15-20 min. Tlak (rate × HP nepřátel) roste rychleji
+  // než jakýkoli DPS hráče → smrt je nakonec nevyhnutelná (žádné nesmrtelné
+  // kombo). Ladí se v tools/spawn-curve.js.
+  spawnRate: (t) => { const m = t / 60; return 0.85 + 0.20 * m + 0.0095 * m * m; },
+  surge: { period: 50, dur: 7, mult: 2.4 },                          // vlnka ~à 50 s, ×2,4 na 7 s
+  horde: { period: 160, size: (tier) => 12 + Math.round(tier * 2.4) }, // horda ~à 2,7 min
 
   // Level-up volby
   maxWeapons: 6,          // max útoků na hrdinu (jako VS)

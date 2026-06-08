@@ -21,6 +21,24 @@ window.GameScene = class GameScene extends Phaser.Scene {
     this.add.rectangle(M / 2, M / 2, M, M)
       .setStrokeStyle(12, PS.COLORS.pink, 0.7).setDepth(1); // viditelný okraj mapy
 
+    // ---------- klubová atmosféra: barevné reflektory + vinětace ----------
+    // Pár velkých měkkých světel přilepených na obrazovku (ADD blend), pomalu
+    // bloudí/pulzují → pocit klubu. Levné: 3 sprity + tweeny. Vinětace ztmaví
+    // okraje (postavy vystupují ze tmy). HUD je nad tím (samostatná scéna).
+    [[0.20, 0.24, PS.COLORS.pink], [0.82, 0.30, PS.COLORS.cyan], [0.50, 0.86, PS.COLORS.purple]]
+      .forEach(([fx, fy, col]) => {
+        const l = this.add.image(this.scale.width * fx, this.scale.height * fy, 'glow')
+          .setScrollFactor(0).setDepth(1).setBlendMode(Phaser.BlendModes.ADD)
+          .setTint(col).setScale(7).setAlpha(0.12);
+        this.tweens.add({
+          targets: l, x: l.x + Phaser.Math.Between(-110, 110), y: l.y + Phaser.Math.Between(-70, 70),
+          alpha: { from: 0.07, to: 0.17 }, duration: Phaser.Math.Between(3000, 5200),
+          yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
+        });
+      });
+    this.add.image(this.scale.width / 2, this.scale.height / 2, 'vignette')
+      .setScrollFactor(0).setDepth(50).setDisplaySize(this.scale.width + 40, this.scale.height + 40);
+
     // ---------- hráč ----------
     this.player = this.physics.add.sprite(M / 2, M / 2, 'hero-' + this.hero.id);
     this.player.setCollideWorldBounds(true).setDepth(10);
@@ -36,7 +54,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
       dmgMult: p.type === 'damage' ? 1 + p.value : 1,
       cdMult: p.type === 'cooldown' ? 1 - p.value : 1,
       areaMult: 1,
-      regen: p.type === 'regen' ? p.value : 0,
+      regen: B.baseRegen + (p.type === 'regen' ? p.value : 0), // základní slabá regenerace všem + případná pasivka
       xpMult: p.type === 'xpGain' ? 1 + p.value : 1,
       critChance: p.type === 'crit' ? p.value : 0,
       critMult: p.type === 'crit' ? p.mult : 2,
@@ -47,6 +65,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
     this.xp = 0;
     this.xpNext = PS.BALANCE.xpForLevel(1);
     this.kills = 0;
+    this.weaponStats = {}; // per-zbraň { damage, kills } → statistiky na obrazovce smrti
     this.elapsed = 0;
     this.invulnUntil = 0;
     this.regenAcc = 0;
@@ -122,6 +141,12 @@ window.GameScene = class GameScene extends Phaser.Scene {
     // ---------- powerupy (klíčky) + Runda panclů ----------
     this.schedulePowerup();
     this.scheduleRunda();
+
+    // ---------- hudba na pozadí (JEN ve hře) ----------
+    // Startuje se začátkem hry; běží i přes pauzu/level-up. Zastaví se až při
+    // ukončení scény (smrt → GameOver, nebo ESC → Menu) — v menu nehraje.
+    PS.Music.start();
+    this.events.once('shutdown', () => PS.Music.stop());
   }
 
   update(_time, delta) {
@@ -266,12 +291,26 @@ window.GameScene = class GameScene extends Phaser.Scene {
     if (opts.dot) {
       enemy.dotDps = opts.dot.dps;
       enemy.dotUntil = this.time.now + opts.dot.dur * 1000;
+      enemy.dotSource = opts.source; // ať DoT tiky kreditují správnou zbraň
     }
     if (opts.knockback) this.knockback(enemy, opts.knockback);
     if (opts.stun && Math.random() < opts.stun.chance) {
       enemy.stunUntil = this.time.now + opts.stun.dur * 1000;
     }
-    if (enemy.hp <= 0) this.killEnemy(enemy);
+    // statistiky zbraní — zapiš odvedený damage (bez overkillu) a případný kill
+    const killed = enemy.hp <= 0;
+    if (opts.source) {
+      const before = enemy.hp + dmg; // hp před tímto zásahem
+      this.creditWeapon(opts.source, Math.max(0, Math.min(dmg, before)), killed);
+    }
+    if (killed) this.killEnemy(enemy);
+  }
+
+  // přičti zbrani odvedený damage a případný kill (pro statistiky na konci hry)
+  creditWeapon(id, dmg, killed) {
+    const st = this.weaponStats[id] || (this.weaponStats[id] = { damage: 0, kills: 0 });
+    st.damage += dmg;
+    if (killed) st.kills++;
   }
 
   applySlow(enemy, pct, dur) {
@@ -301,7 +340,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
     const now = this.time.now;
     this.enemies.children.iterate(e => {
       if (!e || !e.active || (e.dotUntil || 0) < now) return;
-      this.dealDamage(e, e.dotDps * step, { noCrit: true, noFlash: true });
+      this.dealDamage(e, e.dotDps * step, { noCrit: true, noFlash: true, source: e.dotSource });
     });
   }
 
@@ -313,6 +352,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
       tickDmg: cfg.tickDmg || 0,
       tick: cfg.tick || 0.4,
       slowPct: cfg.slowPct || 0,
+      source: cfg.source || null, // zbraň, která zónu položila (statistiky)
       acc: 0,
       img: this.add.image(cfg.x, cfg.y, 'splat')
         .setTint(cfg.tint).setAlpha(cfg.alpha || 0.4)
@@ -337,7 +377,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
       if (z.acc < z.tick) continue;
       z.acc = 0;
       this.enemiesInCircle(z.x, z.y, z.r).forEach(e => {
-        if (z.tickDmg) this.dealDamage(e, z.tickDmg, { noCrit: true, noFlash: true });
+        if (z.tickDmg) this.dealDamage(e, z.tickDmg, { noCrit: true, noFlash: true, source: z.source });
         if (z.slowPct) this.applySlow(e, z.slowPct, 0.45);
       });
     }
@@ -358,6 +398,21 @@ window.GameScene = class GameScene extends Phaser.Scene {
       if (d < bestD) { bestD = d; best = e; }
     });
     return best;
+  }
+
+  // k nejbližších aktivních nepřátel v dosahu (vzestupně dle vzdálenosti);
+  // exclude = Set nepřátel k přeskočení (lahváč cílí každý hod na jiného).
+  // Zeď ringu (ringWall) se ignoruje stejně jako u ostatních dotazů.
+  nearestEnemies(range, k, exclude) {
+    const px = this.player.x, py = this.player.y, r2 = range * range;
+    const arr = [];
+    this.enemies.children.iterate(e => {
+      if (!e || !e.active || e.ringWall || (exclude && exclude.has(e))) return;
+      const d = (e.x - px) ** 2 + (e.y - py) ** 2;
+      if (d <= r2) arr.push({ e, d });
+    });
+    arr.sort((a, b) => a.d - b.d);
+    return arr.slice(0, k).map(o => o.e);
   }
 
   enemiesInCircle(x, y, r) {
@@ -413,6 +468,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
     p.homing = !!cfg.homing;
     p.target = cfg.target || null;
     p.effects = cfg.effects || {};
+    p.source = cfg.source || null;       // zbraň projektilu (statistiky)
     p.bounces = cfg.bounces || 0;        // odrazy mezi nepřáteli (vajgly)
     p.bounceRange = cfg.bounceRange || 0;
     p.hitSet = new Set();
@@ -445,7 +501,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
     if (enemy.ringWall) return; // projektily zdí ringu prolétají (nestojí pierce)
     if (proj.hitSet.has(enemy)) return; // stejný cíl jen jednou
     proj.hitSet.add(enemy);
-    this.dealDamage(enemy, proj.dmg, proj.effects);
+    this.dealDamage(enemy, proj.dmg, Object.assign({ source: proj.source }, proj.effects));
 
     // odraz na dalšího nepřítele v okolí (vajgly)
     if (proj.bounces > 0) {
@@ -482,6 +538,64 @@ window.GameScene = class GameScene extends Phaser.Scene {
     g.lineTo(this.player.x + Math.cos(dir) * range, this.player.y + Math.sin(dir) * range);
     g.strokePath();
     this.tweens.add({ targets: g, alpha: 0, duration: 150, onComplete: () => g.destroy() });
+  }
+
+  // ----- signature efekty útoků (každý jiný, 1 graphics/aktivace = levné) -----
+  // blití — zelená sprška s chuchvalci (ne čistý kužel)
+  fxVomit(dir, half, range) {
+    const px = this.player.x, py = this.player.y;
+    const g = this.add.graphics().setDepth(7);
+    g.fillStyle(0x6abf2a, 0.30);
+    g.slice(px, py, range, dir - half, dir + half, false); g.fillPath();
+    for (let i = 0; i < 8; i++) {
+      const a = dir + (Math.random() * 2 - 1) * half;
+      const rr = range * (0.25 + Math.random() * 0.75);
+      g.fillStyle(Math.random() < 0.5 ? 0x3f7d18 : 0xc2dd45, 0.65);
+      g.fillCircle(px + Math.cos(a) * rr, py + Math.sin(a) * rr, 2 + Math.random() * 3.5);
+    }
+    this.tweens.add({ targets: g, alpha: 0, duration: 260, onComplete: () => g.destroy() });
+  }
+
+  // chcaní — tenký zužující se žlutý proud + cákanec na konci
+  fxPiss(dir, range, width) {
+    const px = this.player.x, py = this.player.y;
+    const ex = px + Math.cos(dir) * range, ey = py + Math.sin(dir) * range;
+    const nx = Math.cos(dir + Math.PI / 2), ny = Math.sin(dir + Math.PI / 2);
+    const w0 = width * 0.45, w1 = 1.5;
+    const g = this.add.graphics().setDepth(7);
+    g.fillStyle(0xffe23a, 0.5);
+    g.beginPath();
+    g.moveTo(px + nx * w0, py + ny * w0); g.lineTo(ex + nx * w1, ey + ny * w1);
+    g.lineTo(ex - nx * w1, ey - ny * w1); g.lineTo(px - nx * w0, py - ny * w0);
+    g.closePath(); g.fillPath();
+    g.fillStyle(0xfff7b0, 0.6);
+    g.beginPath();
+    g.moveTo(px + nx * w0 * 0.5, py + ny * w0 * 0.5); g.lineTo(ex, ey);
+    g.lineTo(px - nx * w0 * 0.5, py - ny * w0 * 0.5); g.closePath(); g.fillPath();
+    g.fillStyle(0xffe23a, 0.55); g.fillCircle(ex, ey, 5);
+    for (let i = 0; i < 4; i++) {
+      const a = dir + (Math.random() * 2 - 1) * 0.9, d = 4 + Math.random() * 9;
+      g.fillCircle(ex + Math.cos(a) * d, ey + Math.sin(a) * d, 1.3 + Math.random());
+    }
+    this.tweens.add({ targets: g, alpha: 0, duration: 170, onComplete: () => g.destroy() });
+  }
+
+  // pivo — široká jantarová vlna s bílou pěnou na náběžné hraně
+  fxBeerSweep(dir, half, range) {
+    const px = this.player.x, py = this.player.y;
+    const g = this.add.graphics().setDepth(7);
+    g.fillStyle(0xff9e1f, 0.26);
+    g.slice(px, py, range, dir - half, dir + half, false); g.fillPath();
+    g.fillStyle(0xffc04a, 0.20);
+    g.slice(px, py, range * 0.68, dir - half, dir + half, false); g.fillPath();
+    g.lineStyle(4, 0xfff4d6, 0.7);
+    g.beginPath(); g.arc(px, py, range * 0.95, dir - half, dir + half, false); g.strokePath();
+    g.fillStyle(0xffffff, 0.8);
+    for (let i = 0; i < 7; i++) {
+      const a = dir + (Math.random() * 2 - 1) * half, rr = range * (0.78 + Math.random() * 0.22);
+      g.fillCircle(px + Math.cos(a) * rr, py + Math.sin(a) * rr, 1.4 + Math.random() * 2.2);
+    }
+    this.tweens.add({ targets: g, alpha: 0, duration: 280, onComplete: () => g.destroy() });
   }
 
   fxCircle(x, y, r, color) {
@@ -1105,6 +1219,24 @@ window.GameScene = class GameScene extends Phaser.Scene {
       } catch (e) { /* private mode */ }
     }
 
+    // statistiky výbavy pro obrazovku smrti — zbraně (level, damage, killy)
+    // seřazené dle damage; barva = barva hrdiny, jehož je útok startovní
+    const attackColor = (id) => {
+      const h = PS.HEROES.find(hr => hr.attackId === id);
+      return h ? h.color : PS.COLORS.cyan;
+    };
+    const weapons = this.weapons.map(w => {
+      const st = this.weaponStats[w.id] || { damage: 0, kills: 0 };
+      return {
+        id: w.id, name: w.def.name, level: w.level,
+        damage: Math.round(st.damage), kills: st.kills, color: attackColor(w.id),
+      };
+    }).sort((a, b) => b.damage - a.damage);
+    // vlastněné upgrady (pasivky z level-upů) i s úrovní
+    const passives = PS.UPGRADES
+      .filter(u => (this.passiveLevels[u.id] || 0) > 0)
+      .map(u => ({ id: u.id, name: u.name, level: this.passiveLevels[u.id] }));
+
     this.scene.stop('HUD');
     if (this.levelUpOpen) this.scene.stop('LevelUp'); // pojistka — overlay nesmí přežít hru
     if (this.rundaOpen) this.scene.stop('Runda');
@@ -1117,6 +1249,8 @@ window.GameScene = class GameScene extends Phaser.Scene {
       best: isRecord ? this.elapsed : best,
       bestName: isRecord ? playerName : ((rec && rec.name) || ''),
       isRecord,
+      weapons,
+      passives,
     });
   }
 

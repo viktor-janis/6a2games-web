@@ -10,3 +10,7 @@ games/party-survivors/logika.xlsx
 
 # Unused audio assets
 games/pong/sounds/
+
+# Party Survivors — hudební mastery (do hry/deploye jdou jen komprimované MP3)
+games/party-survivors/music/*.wav
+games/party-survivors/music/krabička final version.mp3

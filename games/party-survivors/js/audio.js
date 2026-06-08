@@ -65,6 +65,10 @@ PS.Audio = {
     this.tone(98, 0.5, 'sawtooth', 0.2, 196);
     setTimeout(() => this.tone(98, 0.5, 'sawtooth', 0.2, 196), 550);
   },
+  horde() { // varování před velkou hordou — krátký nízký growl
+    this.tone(150, 0.26, 'sawtooth', 0.16, 72);
+    setTimeout(() => this.tone(116, 0.30, 'sawtooth', 0.15, 60), 150);
+  },
   bossDead() { this.seq([1047, 784, 1047, 1319], 0.09, 'square', 0.13); },
   death() { this.seq([392, 330, 262, 196, 131], 0.16, 'triangle', 0.16); },
 };

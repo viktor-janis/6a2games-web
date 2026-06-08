@@ -60,8 +60,8 @@ PS.Weapon = class Weapon {
         const range = this.area(def.range);
         const half = Phaser.Math.DegToRad((def.angle + 15 * this.perk('kuzel')) / 2);
         s.enemiesInCone(this.streamDir, half, range).forEach(e =>
-          s.dealDamage(e, this.dmg(), { dot: { dps: def.dot.dps, dur: def.dot.dur } }));
-        s.fxCone(this.streamDir, half, range, 0x39ff14);
+          s.dealDamage(e, this.dmg(), { dot: { dps: def.dot.dps, dur: def.dot.dur }, source: this.id }));
+        s.fxVomit(this.streamDir, half, range);
       }
     }
   }
@@ -86,7 +86,7 @@ PS.Weapon = class Weapon {
     const range = this.area(def.range);
     const pierce = def.pierce + 2 * this.perk('pierce');
     const targets = s.enemiesInBeam(dir, range, def.width).slice(0, pierce);
-    targets.forEach(e => s.dealDamage(e, this.dmg()));
+    targets.forEach(e => s.dealDamage(e, this.dmg(), { source: this.id }));
 
     // kaluž na konci zásahu (poslední zasažený, jinak konec paprsku)
     const last = targets[targets.length - 1];
@@ -97,7 +97,7 @@ PS.Weapon = class Weapon {
       dur: def.puddle.dur, slowPct: def.puddle.slow,
       tint: 0xd8c020, alpha: 0.40,
     });
-    s.fxBeam(dir, range, def.width, 0xffe600);
+    s.fxPiss(dir, range, def.width);
   }
 
   // ============ tagování — stacionární zóny (Don G) ============
@@ -115,51 +115,61 @@ PS.Weapon = class Weapon {
     const tints = [0xff2bd6, 0x00ffff, 0xb44cff];
     this.tags.push(s.addZone({
       x: s.player.x, y: s.player.y, r: this.area(def.r),
-      dur: def.dur, tickDmg: this.dmg(), tick: def.tick,
+      dur: def.dur, tickDmg: this.dmg(), tick: def.tick, source: this.id,
       tint: tints[Math.floor(Math.random() * tints.length)], alpha: 0.5,
     }));
   }
 
-  // ============ házení lahváčem — nuke s pevným doletem (Kaar) ============
+  // ============ házení lahváčem — auto-cílený nuke (Kaar) ============
+  // Místo pevného doletu sám zamíří na NÁHODNÉHO z několika nejbližších nepřátel
+  // (opilecký hod lahvákem do davu). Perk „hod navíc" cílí každý další lahvák
+  // na jiného nepřítele. Bez nepřátel se hodí naprázdno do směru pohledu (VS styl).
   tick_lob(dt) {
     this.acc += dt;
     if (this.acc < this.cd()) return;
     this.acc = 0;
     const s = this.scene, def = this.def;
-
-    // pevný vzor (jako sekera ve VS): vždy pevná vzdálenost ve směru pohledu;
-    // perk „hod navíc" přidává lahváče ve vějíři ±24°
-    const dir = s.facingDir();
-    const dist = this.area(def.range);
-    const offsets = [0, 0.42, -0.42].slice(0, 1 + this.perk('runda'));
-    offsets.forEach(off => {
-      const a = dir + off;
-      const tx = s.player.x + Math.cos(a) * dist;
-      const ty = s.player.y + Math.sin(a) * dist;
-      const img = s.add.image(s.player.x, s.player.y, 'proj-lahvac').setDepth(9);
-      s.tweens.add({
-        targets: img, x: tx, y: ty,
-        duration: 430, ease: 'Linear',
-        onUpdate: (tw) => {
-          img.rotation += 0.25;
-          img.setScale(1 + Math.sin(tw.progress * Math.PI) * 0.9); // oblouk
-        },
-        onComplete: () => { img.destroy(); this.lobImpact(tx, ty); },
-      });
+    const range = this.area(def.targetRange);
+    const count = 1 + this.perk('runda');
+    const chosen = new Set();
+    for (let i = 0; i < count; i++) {
+      const pool = s.nearestEnemies(range, def.targetPool, chosen);
+      if (pool.length) {
+        const t = pool[Math.floor(Math.random() * pool.length)];
+        chosen.add(t);
+        this.throwLahvac(t.x, t.y);
+      } else {
+        // nikde nikdo → hod naprázdno (perk hází do vějíře, ať to není na jedno místo)
+        const dir = s.facingDir() + (i ? 0.42 * (i % 2 ? 1 : -1) : 0);
+        this.throwLahvac(s.player.x + Math.cos(dir) * range, s.player.y + Math.sin(dir) * range);
+      }
+    }
+  }
+  throwLahvac(tx, ty) {
+    const s = this.scene;
+    const img = s.add.image(s.player.x, s.player.y, 'proj-lahvac').setDepth(9);
+    s.tweens.add({
+      targets: img, x: tx, y: ty,
+      duration: 430, ease: 'Linear',
+      onUpdate: (tw) => {
+        img.rotation += 0.25;
+        img.setScale(1 + Math.sin(tw.progress * Math.PI) * 0.9); // oblouk
+      },
+      onComplete: () => { img.destroy(); this.lobImpact(tx, ty); },
     });
   }
   lobImpact(x, y) {
     const s = this.scene, def = this.def;
     // přímý zásah — plný DMG, odhoz a šance na omráčení (lahváčem do hlavy)
-    s.enemiesInCircle(x, y, this.area(30)).forEach(e =>
-      s.dealDamage(e, this.dmg(), { knockback: def.knockback, stun: def.stun }));
+    s.enemiesInCircle(x, y, this.area(def.hitR)).forEach(e =>
+      s.dealDamage(e, this.dmg(), { knockback: def.knockback, stun: def.stun, source: this.id }));
     // výbuch střepů
     s.enemiesInCircle(x, y, this.area(def.burst.r)).forEach(e =>
-      s.dealDamage(e, this.dmg(def.burst.dmg)));
+      s.dealDamage(e, this.dmg(def.burst.dmg), { source: this.id }));
     // střepy na zemi
     s.addZone({
       x, y, r: this.area(def.shards.r),
-      dur: def.shards.dur, tickDmg: this.dmg(def.shards.dmg), tick: def.shards.tick,
+      dur: def.shards.dur, tickDmg: this.dmg(def.shards.dmg), tick: def.shards.tick, source: this.id,
       tint: 0x8a5a2b, alpha: 0.45,
     });
     s.fxCircle(x, y, this.area(def.burst.r), 0xc77b30);
@@ -185,7 +195,7 @@ PS.Weapon = class Weapon {
     const s = this.scene, def = this.def;
     s.fireProjectile({
       texture: 'proj-vajgl', target, dir: fallbackDir, speed: 300, life: 1.2,
-      dmg: this.dmg(), pierce: 0, homing: !!target,
+      dmg: this.dmg(), pierce: 0, homing: !!target, source: this.id,
       bounces: def.bounces + this.perk('odraz'), bounceRange: this.area(def.bounceRange),
       effects: { slow: { pct: def.slow.pct, dur: def.slow.dur } },
     });
@@ -207,7 +217,7 @@ PS.Weapon = class Weapon {
     const range = this.area(def.range);
     const half = Phaser.Math.DegToRad((def.angle + 20 * this.perk('sirka')) / 2);
     s.enemiesInCone(dir, half, range).forEach(e =>
-      s.dealDamage(e, this.dmg(), { knockback: def.knockback }));
+      s.dealDamage(e, this.dmg(), { knockback: def.knockback, source: this.id }));
 
     // kaluž piva ve směru máchnutí
     s.addZone({
@@ -216,24 +226,38 @@ PS.Weapon = class Weapon {
       r: this.area(def.puddle.r), dur: def.puddle.dur, slowPct: def.puddle.slow,
       tint: 0xffb400, alpha: 0.35,
     });
-    s.fxCone(dir, half, range, 0xffb400);
+    s.fxBeerSweep(dir, half, range);
   }
 
   // ============ vypouštění dýmu — trvalá aura (fadadevada) ============
+  // Viditelný šedý oblak: 3 vrstvy textury 'smoke', pomalu rotují a pulzují
+  // → živý kouř kolem hrdiny (dřív skoro neviditelný glow).
   init_aura() {
-    this.circle = this.scene.add.image(0, 0, 'glow')
-      .setTint(0x9fb8c8).setAlpha(0.22).setDepth(4);
+    const s = this.scene;
+    // depth 7 = NAD nepřáteli (5/6), ale pod hrdinou (10) → viditelný oblak,
+    // ve kterém hrdina stojí (dřív byl pod nepřáteli a schoval se v davu)
+    this.puffs = [0, 1, 2, 3].map((i) => ({
+      img: s.add.image(0, 0, 'smoke').setDepth(7).setAlpha(0),
+      rot: Math.random() * Math.PI * 2,
+      spin: (i % 2 ? 1 : -1) * (0.22 + Math.random() * 0.26),
+      sc: 0.78 + i * 0.15,
+    }));
   }
   tick_aura(dt) {
     const s = this.scene, def = this.def;
     const r = this.area(def.r);
-    this.circle.setPosition(s.player.x, s.player.y).setScale(r * 2 / 128);
+    this.puffs.forEach((p, i) => {
+      p.rot += p.spin * dt;
+      p.img.setPosition(s.player.x, s.player.y).setRotation(p.rot)
+        .setScale(r * 2 / 64 * p.sc)
+        .setAlpha(0.32 + 0.07 * Math.sin(s.time.now / 460 + i * 1.7));
+    });
 
     this.tickAcc += dt;
     if (this.tickAcc < def.tick - 0.1 * this.perk('hustsi')) return;
     this.tickAcc = 0;
     s.enemiesInCircle(s.player.x, s.player.y, r).forEach(e =>
-      s.dealDamage(e, this.dmg(), { slow: { pct: def.slow, dur: 0.6 }, noFlash: true }));
+      s.dealDamage(e, this.dmg(), { slow: { pct: def.slow, dur: 0.6 }, noFlash: true, source: this.id }));
   }
 
   // ============ kopání panáků — orbitující projektily (Zložík) ============
@@ -264,7 +288,7 @@ PS.Weapon = class Weapon {
       s.enemiesInCircle(ox, oy, 22).forEach(e => {
         if (now - (e.lastOrbHit || 0) < def.rehit * 1000) return;
         e.lastOrbHit = now;
-        s.dealDamage(e, this.dmg(), { knockback: def.knockback });
+        s.dealDamage(e, this.dmg(), { knockback: def.knockback, source: this.id });
       });
     });
   }
@@ -281,22 +305,25 @@ PS.Weapon = class Weapon {
     const half = Phaser.Math.DegToRad(def.angle / 2);
     const stun = { chance: def.stun.chance + 0.10 * this.perk('stun'), dur: def.stun.dur };
     s.enemiesInCone(dir, half, range).slice(0, def.targets + this.perk('cile')).forEach(e =>
-      s.dealDamage(e, this.dmg(), { knockback: def.knockback, stun }));
+      s.dealDamage(e, this.dmg(), { knockback: def.knockback, stun, source: this.id }));
 
-    // švih listem
-    const leaf = s.add.image(
-      s.player.x + Math.cos(dir) * range * 0.5,
-      s.player.y + Math.sin(dir) * range * 0.5, 'leaf'
-    ).setDepth(9).setRotation(dir - 0.8).setScale(1.6);
+    // švih marihuanovým listem — velký a dobře viditelný (špička míří na cíl),
+    // delší máchnutí + krátký dosvit; list je nad hrdinou (depth 11)
+    const lx = s.player.x + Math.cos(dir) * range * 0.55;
+    const ly = s.player.y + Math.sin(dir) * range * 0.55;
+    const base = dir + Math.PI / 2; // textura listu míří špičkou nahoru
+    const leaf = s.add.image(lx, ly, 'leaf').setDepth(11).setScale(1.5).setRotation(base - 0.85);
     s.tweens.add({
-      targets: leaf, rotation: dir + 0.8, alpha: 0,
-      duration: 180, onComplete: () => leaf.destroy(),
+      targets: leaf, rotation: base + 0.85, scale: 1.75, duration: 320, ease: 'Cubic.easeOut',
+      onComplete: () => s.tweens.add({
+        targets: leaf, alpha: 0, scale: 1.9, duration: 130, onComplete: () => leaf.destroy(),
+      }),
     });
-    s.fxCone(dir, half, range, 0x2ecc40);
+    s.fxCone(dir, half, range, 0x2ecc40); // jemný náznak zásahové plochy
   }
 
   destroy() {
-    if (this.circle) this.circle.destroy();
+    if (this.puffs) this.puffs.forEach(p => p.img.destroy());
     if (this.orbiters) this.orbiters.forEach(o => o.destroy());
   }
 };

@@ -7,7 +7,9 @@
   <link rel="icon" type="image/png" href="../../favicon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <!-- Baloo 2 = baculaté párty písmo s plnou českou diakritikou (latin-ext);
+       signature styl hry, záměrně jiný než zbytek webu (Press Start 2P) -->
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&display=swap" rel="stylesheet">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { height: 100%; width: 100%; background: #000; overflow: hidden; }
@@ -16,7 +18,8 @@
     /* šipka zpět na úvodní stránku webu — zobrazuje ji jen MenuScene */
     #back-home {
       position: fixed; top: 16px; left: 16px; z-index: 10;
-      font-family: "Press Start 2P", "Courier New", monospace; font-size: 12px;
+      font-family: "Baloo 2", "Trebuchet MS", sans-serif; font-weight: 800;
+      font-size: 16px; letter-spacing: 1px;
       color: #ff2bd6; text-decoration: none; padding: 10px 12px;
       text-shadow: 0 0 8px rgba(255, 43, 214, 0.7);
       display: none;
@@ -32,6 +35,7 @@
   <script src="js/data.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/audio.js"></script>
+  <script src="js/music.js"></script>
   <script src="js/systems/spawner.js"></script>
   <script src="js/systems/weapons.js"></script>
   <script src="js/scenes/BootScene.js"></script>
