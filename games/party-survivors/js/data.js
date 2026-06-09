@@ -29,25 +29,10 @@ PS.STORAGE = {
   name: 'ps_name',     // naposledy zadané herní jméno (předvyplňuje se)
 };
 
-// ---------- Hudba na pozadí (hraje JEN ve hře, náhodně, s crossfade) ----------
-// Komprimováno z music/*.wav na 128 kbps MP3 (viz README + .gitignore mastery).
-// Pořadí pole je jedno — PS.Music vybírá náhodně. Streamuje se po jednom tracku.
-PS.MUSIC = [
-  'music/bazina.mp3',
-  'music/bon-apetit.mp3',
-  'music/cloud-9.mp3',
-  'music/fotbalky.mp3',
-  'music/frystajl.mp3',
-  'music/haribo.mp3',
-  'music/kaar-almost-freestyle.mp3',
-  'music/krabicka.mp3',
-  'music/lanova-draha.mp3',
-  'music/navsteva-lepsi-spolecnosti.mp3',
-  'music/nikdy-se-nevyseru-2.mp3',
-  'music/poskit.mp3',
-  'music/shake-fidget.mp3',
-  'music/x-treme.mp3',
-];
+// ---------- Hudba na pozadí ----------
+// Seznam tracků (PS.MUSIC) je v js/playlist.js — AUTOGENEROVANÝ skriptem
+// tools/build-music.js (komprese masterů z music/ na 128k MP3 + tento seznam).
+// Přehrávání řeší js/music.js (sekvenčně podle abecedy, ve smyčce, s crossfade).
 
 // ---------- Hrdinové (list „Hrdinové") ----------
 // intro1/intro2 = doslovné texty ze sloupců „Intro 1. řádek" / „Intro 2. řádek"

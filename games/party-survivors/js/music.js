@@ -1,13 +1,14 @@
 // ============================================================
-// Hudba na pozadí — JEN ve hře (GameScene), NÁHODNÉ pořadí, CROSSFADE
-// vždy až na konci tracku (ne v půlce). Streamuje přes 2 HTML5 Audio
+// Hudba na pozadí — JEN ve hře (GameScene), SEKVENČNÍ pořadí (abecedně, smyčka),
+// CROSSFADE vždy až na konci tracku (ne v půlce). Streamuje přes 2 HTML5 Audio
 // elementy (nestáhne se vše naráz — track se načítá, až když má hrát).
 //
 // - běží i přes pauzu / level-up (to jen `scene.pause('Game')`) → žádné
 //   trhání při častých level-upech; zastaví se až při ukončení hry
 //   (GameScene 'shutdown' = smrt / odchod do menu).
 // - respektuje mute (klávesa M → PS.Audio.muted) — ztlumí se živě.
-// - náhodně: další track je vždy jiný než právě hraný (žádný pevný playlist).
+// - sekvenčně: tracky se hrají v pořadí dle abecedy (PS.MUSIC, viz js/playlist.js,
+//   generuje tools/build-music.js); po posledním se vrací na první.
 // ============================================================
 window.PS = window.PS || {};
 
@@ -34,13 +35,10 @@ PS.Music = {
   _muted() { return !!(window.PS.Audio && PS.Audio.muted); },
   _target() { return this._muted() ? 0 : this.vol; },
 
-  // náhodný index tracku ≠ exclude (žádné dvě stejné po sobě)
-  _rand(exclude) {
+  // další track v pořadí (po posledním zpět na první)
+  _next(i) {
     const n = PS.MUSIC.length;
-    if (n <= 1) return 0;
-    let i;
-    do { i = (Math.random() * n) | 0; } while (i === exclude);
-    return i;
+    return n ? (i + 1) % n : 0;
   },
 
   // nastav zdroj jen když už není nahraný (ať se zbytečně nestahuje znovu) + přehraj
@@ -59,7 +57,7 @@ PS.Music = {
     if (this.active) return;
     this.active = true;
     this.cur = 0;
-    this.curTrack = this._rand(-1);
+    this.curTrack = 0; // začínáme prvním trackem (abecedně)
     this.nextTrack = -1;
     this.els[1].pause();
     const a = this.els[this.cur];
@@ -87,7 +85,7 @@ PS.Music = {
   // neznámá délka). Normálně se nepoužije, crossfade naběhne před koncem.
   _forceNext() {
     if (!this.active) return;
-    const idx = this._rand(this.curTrack);
+    const idx = this._next(this.curTrack);
     this.els[this.cur].onended = null;
     try { this.els[this.cur].pause(); } catch (e) { /* noop */ }
     this.cur = 1 - this.cur;
@@ -117,14 +115,14 @@ PS.Music = {
       if (dur && isFinite(dur)) {
         // přednačti další track s rezervou (ať crossfade nemá díru)
         if (this.nextTrack < 0 && a.currentTime >= dur - this.crossfade - this.preloadLead) {
-          this.nextTrack = this._rand(this.curTrack);
+          this.nextTrack = this._next(this.curTrack);
           const b = this.els[1 - this.cur];
           b.src = PS.MUSIC[this.nextTrack];
           try { b.load(); } catch (e) { /* noop */ }
         }
         // crossfade VŽDY až na konci tracku
         if (a.currentTime >= dur - this.crossfade) {
-          if (this.nextTrack < 0) this.nextTrack = this._rand(this.curTrack);
+          if (this.nextTrack < 0) this.nextTrack = this._next(this.curTrack);
           const b = this.els[1 - this.cur];
           b.volume = 0;
           this._cue(b, this.nextTrack);

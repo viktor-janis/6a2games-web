@@ -23,7 +23,7 @@ Klon hry **Vampire Survivors** v párty stylu (temná klubová neonová atmosfé
 | Grafika | **100% procedurální** — vše kreslí `BootScene` do `Canvas` textur (přechody, měkké stíny, tmavý obrys + dvoutónový rim-light); generuje se **jednou při bootu**, za běhu nulová zátěž; v repu nejsou žádné obrázky/assety |
 | Vizuální styl | **temná klubová atmosféra** + čistě stylizované **nasvícené** postavy (každý hrdina unikátní obličej/rysy, ne jen barva); barevné reflektory + vinětace v `GameScene`; signature efekty útoků (blití/chcaní/pivo/dým/list mají vlastní vzhled) |
 | Zvuk | **syntetické SFX přes WebAudio** (`js/audio.js`) — žádné audio soubory |
-| Hudba | 14 tracků, hraje **jen ve hře** (`GameScene`), **náhodně** (další ≠ právě hraný), s **crossfade na konci** tracku; streamuje se po jednom přes 2 HTML5 Audio elementy (`js/music.js` = `PS.Music`, seznam `PS.MUSIC`). Respektuje mute (M). Zdroje `music/*.wav` jsou komprimované na **128k MP3** (slug názvy); originální mastery jsou v `.gitignore` (do deploye jdou jen MP3) |
+| Hudba | hraje **jen ve hře** (`GameScene`), **sekvenčně podle abecedy** ve smyčce, s **crossfade na konci** tracku; streamuje se po jednom přes 2 HTML5 Audio elementy (`js/music.js` = `PS.Music`). Respektuje mute (M). Mastery v `music/` se komprimují na **128k MP3** do `music/compressed/` skriptem `tools/build-music.js` (vygeneruje i seznam `js/playlist.js`); mastery jsou v `.gitignore`, do deploye jdou jen MP3. **Přidání tracku:** master s číselným prefixem (`05_…`) do `music/` + spustit skript (dvojklik `tools/compress-music.bat`) |
 | Font | **Baloo 2** (Google Fonts) — baculaté párty písmo, signature styl hry (ne pixel jako zbytek webu); plná česká diakritika v plné výšce (háčky/čárky písmeno nezmenšují) |
 | Persistence | `localStorage`: `ps_keys` (klávesy), `ps_record` (rekord `{time, name}`), `ps_name` (herní jméno), `ps_muted` (mute); `ps_best` je legacy a maže se |
 | Platforma | jen **PC + klávesnice** (přemapovatelné klávesy), rozlišení 1280×720 se `Scale.FIT` |
@@ -49,7 +49,8 @@ party-survivors/
     main.js                Phaser config, čekání na font, start hry
     ui.js                  PS.Keys (správa kláves) + PS.UI (sdílené text/neon helpery)
     audio.js               PS.Audio — WebAudio syntéza SFX
-    music.js               PS.Music — hudba na pozadí (jen ve hře, náhodně, crossfade)
+    music.js               PS.Music — hudba na pozadí (jen ve hře, sekvenčně dle abecedy, crossfade)
+    playlist.js            ⚙ AUTOGEN seznam hudby (PS.MUSIC) — generuje tools/build-music.js
     systems/
       weapons.js           PS.Weapon — 9 archetypů útoků (cone/beam/zone/lob/homing/sweep/aura/orbit/slap)
       spawner.js           PS.Spawner — director: tiery, nerovnoměrný spawn (proud+vlnky+hordy), bossové
