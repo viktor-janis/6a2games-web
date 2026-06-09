@@ -119,7 +119,11 @@ window.SettingsScene = class SettingsScene extends Phaser.Scene {
     refresh();
 
     sound.onClick = () => { PS.Audio.setMuted(!PS.Audio.muted); refresh(); };
-    fs.onClick = () => PS.goFullscreen(this);
+    fs.onClick = () => {
+      // iPhone Safari nepodporuje Fullscreen API → poradit „Přidat na plochu"
+      if (this.scale.fullscreen.available) PS.goFullscreen(this);
+      else PS.UI.toast(this, 'iPHONE: SDÍLET ⎋ → PŘIDAT NA PLOCHU A SPUSŤ ODTUD');
+    };
     size.onClick = () => { si = (si + 1) % SIZES.length; save(); refresh(); };
     opac.onClick = () => { oi = (oi + 1) % OPACS.length; save(); refresh(); };
     back.onClick = () => this.scene.start('Menu');

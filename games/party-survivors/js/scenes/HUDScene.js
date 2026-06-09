@@ -68,12 +68,17 @@ window.HUDScene = class HUDScene extends Phaser.Scene {
     // dotyková tlačítka v pauze (fungují i myší na PC)
     this.pResume = PS.UI.button(this, W / 2, H / 2 - 10, 360, 56, 'POKRAČOVAT');
     this.pMenu = PS.UI.button(this, W / 2, H / 2 + 58, 360, 56, 'DO MENU');
+    this.pConcede = PS.UI.button(this, W / 2, H / 2 + 90, 480, 56, 'TUHLE RYCHTU VZDÁVÁM',
+      { color: PS.COLORS.red, fontSize: 15 });
     this.pMute = PS.UI.button(this, W / 2, H / 2 + 126, 360, 48, 'ZVUK: ZAP', { fontSize: 14 });
     this.pResume.onClick = () => this.togglePause();
     this.pMenu.onClick = () => this.quitToMenu();
+    this.pConcede.onClick = () => this.concede();
+    this.pConcede.onHover = () => this.pConcede.setSelected(true);        // hover → červená výplň
+    this.pConcede.bg.on('pointerout', () => this.pConcede.setSelected(false));
     this.pMute.onClick = () => this.toggleMute();
     this.pauseUi.add([this.pauseBg, this.pauseTitle, this.pauseHint,
-      this.pResume.container, this.pMenu.container, this.pMute.container]);
+      this.pResume.container, this.pMenu.container, this.pConcede.container, this.pMute.container]);
 
     // ---------- dotyková tlačítka pauza / zvuk (roh, jen na dotyk) ----------
     if (PS.isTouch) {
@@ -138,11 +143,12 @@ window.HUDScene = class HUDScene extends Phaser.Scene {
     // pauza — vycentrovat do bezpečné oblasti
     const pcy = (SY + SB) / 2;
     this.pauseBg.setPosition(W / 2, H / 2);
-    this.pauseTitle.setPosition(SCX, pcy - 110);
-    this.pResume.container.setPosition(SCX, pcy - 10);
-    this.pMenu.container.setPosition(SCX, pcy + 58);
-    this.pMute.container.setPosition(SCX, pcy + 122);
-    this.pauseHint.setPosition(SCX, pcy + 170);
+    this.pauseTitle.setPosition(SCX, pcy - 150);
+    this.pResume.container.setPosition(SCX, pcy - 86);
+    this.pMenu.container.setPosition(SCX, pcy - 26);
+    this.pConcede.container.setPosition(SCX, pcy + 38);
+    this.pMute.container.setPosition(SCX, pcy + 98);
+    this.pauseHint.setPosition(SCX, pcy + 142);
 
     // dotyková tlačítka — pravý dolní roh bezpečné oblasti
     if (this.pauseBtn) {
@@ -172,6 +178,18 @@ window.HUDScene = class HUDScene extends Phaser.Scene {
     if (PS.Touch) PS.Touch.reset();
     this.scene.stop('Game');
     this.scene.start('Menu'); // start z HUD zároveň HUD ukončí
+  }
+
+  // „Tuhle rychtu vzdávám" — udělá totéž co smrt ve hře (konec běhu → GameOver,
+  // uloží/odešle čas atd. přes GameScene.gameOver()).
+  concede() {
+    const g = this.gameScene;
+    if (!g || g.over) return;
+    if (PS.Touch) PS.Touch.reset();
+    this.paused = false;
+    this.pauseUi.setVisible(false);
+    this.scene.resume('Game'); // vrátit hru do běhu, ať je stav stejný jako při smrti
+    g.gameOver();              // … a vyvolat konec hry úplně stejně jako smrt
   }
 
   onAnnounce({ text, color }) {

@@ -23,6 +23,8 @@ PS.Audio = {
   setMuted(m) {
     this.muted = m;
     try { localStorage.setItem('ps_muted', m ? '1' : '0'); } catch (e) { /* private mode */ }
+    // hudbu (HTML5 Audio) je nutné REÁLNĚ pozastavit — iOS ignoruje volume=0
+    if (window.PS && PS.Music && PS.Music.applyMute) PS.Music.applyMute();
   },
 
   // základní tón s envelope, volitelný sklouznutí frekvence

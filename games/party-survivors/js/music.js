@@ -63,6 +63,7 @@ PS.Music = {
     const a = this.els[this.cur];
     a.volume = 0;
     this._cue(a, this.curTrack);
+    this.applyMute(); // start ztlumený = rovnou pozastavit (jinak by iOS hrál dál)
     a.onended = () => this._forceNext();
     this.state = 'fadein';
     this.t0 = performance.now();
@@ -75,9 +76,29 @@ PS.Music = {
     if (this.raf) { cancelAnimationFrame(this.raf); this.raf = null; }
     if (this.els) this.els.forEach((a) => {
       a.onended = null;
+      a._wasPlaying = false;
       try { a.pause(); a.currentTime = 0; } catch (e) { /* noop */ }
     });
     this.curTrack = this.nextTrack = -1;
+  },
+
+  // Ztlumení: hudbu REÁLNĚ pozastavit (iOS ignoruje volume), odtlumení = obnovit.
+  // Volá se z PS.Audio.setMuted (tj. ze všech tlačítek/kláves pro zvuk).
+  applyMute() {
+    if (!this.els) return;
+    if (this._muted()) {
+      this.els.forEach((el) => {
+        if (!el.paused) { el._wasPlaying = true; try { el.pause(); } catch (e) { /* noop */ } }
+      });
+    } else {
+      this.els.forEach((el) => {
+        if (el._wasPlaying) {
+          el._wasPlaying = false;
+          const p = el.play();
+          if (p && p.catch) p.catch(() => { /* autoplay blok */ });
+        }
+      });
+    }
   },
 
   // ---------- vnitřní ----------
