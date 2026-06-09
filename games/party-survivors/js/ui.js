@@ -3,6 +3,10 @@
 // ============================================================
 window.PS = window.PS || {};
 
+// Dotykové zařízení? (telefon/tablet) — řídí zobrazení dotykového ovládání.
+PS.isTouch = (typeof navigator !== 'undefined') &&
+  (navigator.maxTouchPoints > 0 || 'ontouchstart' in window);
+
 // ---------- Nastavení kláves (localStorage) ----------
 // Ukládáme KeyboardEvent.code (fyzická klávesa, nezávislé na rozložení).
 // Šipky fungují vždy jako záložní ovládání pohybu.
@@ -175,4 +179,34 @@ PS.UI = {
   glowBlob(scene, x, y, color, scale = 6, alpha = 0.10) {
     return scene.add.image(x, y, 'glow').setTint(color).setScale(scale).setAlpha(alpha).setDepth(-2);
   },
+
+  // Bezpečné okraje v HERNÍCH souřadnicích — kolik px je u režimu ENVELOP
+  // useknuto za okrajem viewportu (na každé straně). Na PC (bez ořezu) ~nuly.
+  safeInset(scene) {
+    const cv = scene.sys.game.canvas;
+    const r = cv.getBoundingClientRect();
+    const gw = scene.scale.gameSize.width, gh = scene.scale.gameSize.height;
+    const sx = (r.width / gw) || 1, sy = (r.height / gh) || 1;
+    const vw = window.innerWidth, vh = window.innerHeight;
+    return {
+      left:   Math.max(0, -r.left) / sx,
+      right:  Math.max(0, r.right - vw) / sx,
+      top:    Math.max(0, -r.top) / sy,
+      bottom: Math.max(0, r.bottom - vh) / sy,
+    };
+  },
+};
+
+// Celá obrazovka + pokus o zámek orientace na šířku (mobil). Bezpečné na PC.
+PS.goFullscreen = function (scene) {
+  try {
+    if (scene.scale.isFullscreen) {
+      scene.scale.stopFullscreen();
+    } else {
+      scene.scale.startFullscreen();
+      if (screen.orientation && screen.orientation.lock) {
+        screen.orientation.lock('landscape').catch(() => {});
+      }
+    }
+  } catch (e) { /* nepodporováno */ }
 };

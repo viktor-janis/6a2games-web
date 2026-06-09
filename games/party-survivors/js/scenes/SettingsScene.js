@@ -15,6 +15,10 @@ window.SettingsScene = class SettingsScene extends Phaser.Scene {
     PS.UI.confetti(this, 350);
 
     PS.UI.title(this, W / 2, 70, 'NASTAVENÍ', 36, PS.COLORS.cyan);
+
+    // Mobil: místo přemapování kláves (na dotyku nepoužitelné) → dotykové volby.
+    if (PS.isTouch) { this.createTouchSettings(W, H); return; }
+
     PS.UI.text(this, W / 2, 125, 'ENTER NEBO KLIK NA ŘÁDKU = ZMĚNA KLÁVESY', 11, '#8888aa');
     PS.UI.text(this, W / 2, 150, 'ŠIPKY FUNGUJÍ VE HŘE VŽDY JAKO ZÁLOŽNÍ OVLÁDÁNÍ', 11, '#8888aa');
 
@@ -82,6 +86,46 @@ window.SettingsScene = class SettingsScene extends Phaser.Scene {
     });
 
     this.refreshChips();
+  }
+
+  // ---------- dotykové volby (mobil) ----------
+  createTouchSettings(W, H) {
+    const cfg = PS.TouchCfg.load();
+    const SIZES = [['MALÝ', 0.8], ['STŘEDNÍ', 1.0], ['VELKÝ', 1.3]];
+    const OPACS = [['SLABÁ', 0.3], ['STŘEDNÍ', 0.5], ['SILNÁ', 0.75]];
+    const nearest = (arr, v) => {
+      let bi = 0, bd = Infinity;
+      arr.forEach(([, val], i) => { const d = Math.abs(val - v); if (d < bd) { bd = d; bi = i; } });
+      return bi;
+    };
+    let si = nearest(SIZES, cfg.size != null ? cfg.size : 1);
+    let oi = nearest(OPACS, cfg.opacity != null ? cfg.opacity : 0.5);
+    const save = () => PS.TouchCfg.save({ size: SIZES[si][1], opacity: OPACS[oi][1] });
+
+    PS.UI.text(this, W / 2, 125, 'DOTYKOVÉ OVLÁDÁNÍ', 11, '#8888aa');
+
+    const sound = PS.UI.button(this, W / 2, 212, 560, 60, '');
+    const fs = PS.UI.button(this, W / 2, 286, 560, 60, 'CELÁ OBRAZOVKA');
+    const size = PS.UI.button(this, W / 2, 360, 560, 60, '');
+    const opac = PS.UI.button(this, W / 2, 434, 560, 60, '');
+    const back = PS.UI.button(this, W / 2, H - 64, 360, 58, 'ZPĚT');
+    back.setSelected(true);
+
+    const refresh = () => {
+      sound.setLabel('ZVUK: ' + (PS.Audio.muted ? 'VYPNUTO' : 'ZAPNUTO'));
+      size.setLabel('JOYSTICK: ' + SIZES[si][0]);
+      opac.setLabel('PRŮHLEDNOST: ' + OPACS[oi][0]);
+    };
+    refresh();
+
+    sound.onClick = () => { PS.Audio.setMuted(!PS.Audio.muted); refresh(); };
+    fs.onClick = () => PS.goFullscreen(this);
+    size.onClick = () => { si = (si + 1) % SIZES.length; save(); refresh(); };
+    opac.onClick = () => { oi = (oi + 1) % OPACS.length; save(); refresh(); };
+    back.onClick = () => this.scene.start('Menu');
+    this.input.keyboard.on('keydown-ESC', () => this.scene.start('Menu'));
+
+    PS.UI.text(this, W / 2, H - 22, 'ŤUKNI PRO ZMĚNU', 10, '#8888aa');
   }
 
   // ---------- navigace ----------

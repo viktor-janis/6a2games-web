@@ -27,6 +27,7 @@ PS.STORAGE = {
   best: 'ps_best',     // LEGACY — starý rekord bez jména; v menu se maže
   record: 'ps_record', // rekord — JSON { time, name } (od zavedení jmen)
   name: 'ps_name',     // naposledy zadané herní jméno (předvyplňuje se)
+  touch: 'ps_touch',   // dotykové volby — JSON { size, opacity } (joystick)
 };
 
 // ---------- Hudba na pozadí ----------

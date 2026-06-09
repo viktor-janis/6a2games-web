@@ -25,8 +25,8 @@ Klon hry **Vampire Survivors** v párty stylu (temná klubová neonová atmosfé
 | Zvuk | **syntetické SFX přes WebAudio** (`js/audio.js`) — žádné audio soubory |
 | Hudba | hraje **jen ve hře** (`GameScene`), **sekvenčně podle abecedy** ve smyčce, s **crossfade na konci** tracku; streamuje se po jednom přes 2 HTML5 Audio elementy (`js/music.js` = `PS.Music`). Respektuje mute (M). Mastery v `music/` se komprimují na **128k MP3** do `music/compressed/` skriptem `tools/build-music.js` (vygeneruje i seznam `js/playlist.js`); mastery jsou v `.gitignore`, do deploye jdou jen MP3. **Přidání tracku:** master s číselným prefixem (`05_…`) do `music/` + spustit skript (dvojklik `tools/compress-music.bat`) |
 | Font | **Baloo 2** (Google Fonts) — baculaté párty písmo, signature styl hry (ne pixel jako zbytek webu); plná česká diakritika v plné výšce (háčky/čárky písmeno nezmenšují) |
-| Persistence | `localStorage`: `ps_keys` (klávesy), `ps_record` (rekord `{time, name}`), `ps_name` (herní jméno), `ps_muted` (mute); `ps_best` je legacy a maže se |
-| Platforma | jen **PC + klávesnice** (přemapovatelné klávesy), rozlišení 1280×720 se `Scale.FIT` |
+| Persistence | `localStorage`: `ps_keys` (klávesy), `ps_record` (rekord `{time, name}`), `ps_name` (herní jméno), `ps_muted` (mute), `ps_touch` (dotykové volby `{size, opacity}`); `ps_best` je legacy a maže se |
+| Platforma | **PC** (klávesnice, přemapovatelná) i **mobil na šířku** (dotyk). Mobil: plovoucí joystick (`js/touch.js` = `PS.Touch`, styl Vampire Survivors — objeví se kam ťukneš, jen pohyb), dotyková tlačítka pauza/zvuk a celá obrazovka, zadání jména přes HTML `<input>`, dotykové `NASTAVENÍ`. `Scale.FIT` na PC, `ENVELOP` (vyplní displej) na mobilu — kritický HUD chrání `PS.UI.safeInset()`. Na výšku výzva „otoč na šířku". Detekce: `PS.isTouch` |
 
 ## Spuštění
 
@@ -47,7 +47,8 @@ party-survivors/
   js/
     data.js                ⭐ jediný zdroj pravdy: všechna herní data + PS.BALANCE
     main.js                Phaser config, čekání na font, start hry
-    ui.js                  PS.Keys (správa kláves) + PS.UI (sdílené text/neon helpery)
+    ui.js                  PS.Keys + PS.UI (text/neon helpery, safeInset, PS.isTouch, goFullscreen)
+    touch.js               PS.Touch — plovoucí joystick (mobil) + sdílený stav pohybu
     audio.js               PS.Audio — WebAudio syntéza SFX
     music.js               PS.Music — hudba na pozadí (jen ve hře, sekvenčně dle abecedy, crossfade)
     playlist.js            ⚙ AUTOGEN seznam hudby (PS.MUSIC) — generuje tools/build-music.js

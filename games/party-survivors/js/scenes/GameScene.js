@@ -96,7 +96,10 @@ window.GameScene = class GameScene extends Phaser.Scene {
     this.pressed = new Set();
     this.input.keyboard.on('keydown', (e) => this.pressed.add(e.code));
     this.input.keyboard.on('keyup', (e) => this.pressed.delete(e.code));
-    this.events.on('resume', () => this.pressed.clear()); // po pauze nezůstanou "viset" klávesy
+    this.events.on('resume', () => { // po pauze nezůstanou "viset" klávesy ani joystick
+      this.pressed.clear();
+      if (PS.Touch) PS.Touch.reset();
+    });
 
     // ---------- skupiny ----------
     this.enemies = this.physics.add.group({ maxSize: 400 });
@@ -191,14 +194,21 @@ window.GameScene = class GameScene extends Phaser.Scene {
     const now = this.time.now;
     if (now < this.playerStunUntil) { this.player.setVelocity(0, 0); return; } // hypnóza
     if (now < this.playerKbUntil) return; // letí od odhození
-    const k = this.bind, P = this.pressed;
-    const left = P.has(k.left) || P.has('ArrowLeft');
-    const right = P.has(k.right) || P.has('ArrowRight');
-    const up = P.has(k.up) || P.has('ArrowUp');
-    const down = P.has(k.down) || P.has('ArrowDown');
 
-    let vx = (right ? 1 : 0) - (left ? 1 : 0);
-    let vy = (down ? 1 : 0) - (up ? 1 : 0);
+    let vx, vy;
+    if (PS.Touch && PS.Touch.active) {
+      // dotykový joystick — vrací jednotkový směr (0 = stůj). Má přednost.
+      vx = PS.Touch.vec.x;
+      vy = PS.Touch.vec.y;
+    } else {
+      const k = this.bind, P = this.pressed;
+      const left = P.has(k.left) || P.has('ArrowLeft');
+      const right = P.has(k.right) || P.has('ArrowRight');
+      const up = P.has(k.up) || P.has('ArrowUp');
+      const down = P.has(k.down) || P.has('ArrowDown');
+      vx = (right ? 1 : 0) - (left ? 1 : 0);
+      vy = (down ? 1 : 0) - (up ? 1 : 0);
+    }
     const len = Math.hypot(vx, vy) || 1;
     const spd = this.stats.speed * (now < this.buffSpeedUntil ? 1.2 : 1);
     this.player.setVelocity(vx / len * spd, vy / len * spd);

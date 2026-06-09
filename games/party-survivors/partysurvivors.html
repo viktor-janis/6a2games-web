@@ -2,7 +2,7 @@
 <html lang="cs">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Party Survivors</title>
   <link rel="icon" type="image/png" href="../../favicon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12,9 +12,28 @@
   <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&display=swap" rel="stylesheet">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { height: 100%; width: 100%; background: #000; overflow: hidden; }
-    #game { width: 100%; height: 100%; }
-    #game canvas { display: block; }
+    html, body {
+      height: 100%; width: 100%; background: #000; overflow: hidden;
+      touch-action: none; overscroll-behavior: none;
+      -webkit-user-select: none; user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    #game { width: 100%; height: 100%; touch-action: none; }
+    #game canvas { display: block; touch-action: none; }
+
+    /* Překryv: výzva k otočení na šířku — jen na dotykových zařízeních (html.touch)
+       a jen když je telefon na výšku. Hra se přitom pauzuje (js/main.js). */
+    #rotate {
+      display: none; position: fixed; inset: 0; z-index: 50;
+      flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+      background: #050010; text-align: center; padding: 24px;
+      font-family: "Baloo 2", "Trebuchet MS", sans-serif; font-weight: 800;
+    }
+    #rotate .icon { font-size: 64px; animation: rotateHint 1.8s ease-in-out infinite; }
+    #rotate .txt { font-size: 20px; letter-spacing: 1px; color: #00ffff;
+      text-shadow: 0 0 10px rgba(0, 255, 255, 0.7); }
+    @keyframes rotateHint { 0%, 100% { transform: rotate(-15deg); } 50% { transform: rotate(75deg); } }
+    @media (orientation: portrait) { html.touch #rotate { display: flex; } }
     /* šipka zpět na úvodní stránku webu — zobrazuje ji jen MenuScene */
     #back-home {
       position: fixed; top: 16px; left: 16px; z-index: 10;
@@ -30,10 +49,15 @@
 <body>
   <a id="back-home" href="../../index.html" title="Zpět na úvodní stránku">« ZPĚT</a>
   <div id="game"></div>
+  <div id="rotate">
+    <div class="icon">📱</div>
+    <div class="txt">OTOČ TELEFON NA ŠÍŘKU</div>
+  </div>
 
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.87.0/dist/phaser.min.js"></script>
   <script src="js/data.js"></script>
   <script src="js/ui.js"></script>
+  <script src="js/touch.js"></script>
   <script src="js/leaderboard.js"></script>
   <script src="js/audio.js"></script>
   <script src="js/playlist.js"></script>
