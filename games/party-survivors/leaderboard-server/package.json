@@ -1,0 +1,13 @@
+{
+  "name": "party-survivors-leaderboard",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Cloudflare Worker + D1 globální žebříček pro Party Survivors",
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "tail": "wrangler tail"
+  },
+  "devDependencies": {
+    "wrangler": "^3.90.0"
+  }
+}

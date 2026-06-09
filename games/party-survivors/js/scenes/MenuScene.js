@@ -29,27 +29,20 @@ window.MenuScene = class MenuScene extends Phaser.Scene {
     });
     PS.UI.text(this, W / 2, 195, 'PŘEŽIJ TUHLE KALBU', 13, PS.UI.hex(PS.COLORS.yellow));
 
-    // rekord — nový formát { time, name }; starý bezejmenný rekord (ps_best)
-    // je zrušený a uklidí se, počítá se až první rekord se jménem
-    let rec = null;
-    try {
-      localStorage.removeItem(PS.STORAGE.best);
-      rec = JSON.parse(localStorage.getItem(PS.STORAGE.record));
-    } catch (e) { /* private mode / poškozený záznam */ }
-    if (rec && rec.time > 0) {
-      PS.UI.text(this, W / 2, 232,
-        `REKORD: ${PS.UI.fmtTime(rec.time)} — ${rec.name || '???'}`, 11, '#8888aa');
-    }
+    // legacy úklid starého bezejmenného rekordu (osobní rekord se v menu
+    // už nezobrazuje — globální výsledky jsou pod položkou LEADERBOARD)
+    try { localStorage.removeItem(PS.STORAGE.best); } catch (e) { /* private mode */ }
 
     // Položky menu
-    const labels = ['START', 'VYSVĚTLIVKY', 'NASTAVENÍ'];
+    const labels = ['START', 'VYSVĚTLIVKY', 'NASTAVENÍ', 'LEADERBOARD'];
     const actions = [
       () => this.startGame(),
       () => this.scene.start('Help'),
       () => this.scene.start('Settings'),
+      () => this.scene.start('Leaderboard'),
     ];
     this.items = labels.map((label, i) => {
-      const btn = PS.UI.button(this, W / 2, 320 + i * 100, 460, 72, label);
+      const btn = PS.UI.button(this, W / 2, 300 + i * 100, 460, 72, label);
       btn.onHover = () => this.select(i);
       btn.onClick = () => { this.select(i); actions[i](); };
       return btn;

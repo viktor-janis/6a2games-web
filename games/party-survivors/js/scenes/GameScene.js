@@ -14,6 +14,9 @@ window.GameScene = class GameScene extends Phaser.Scene {
     const M = PS.BALANCE.mapSize;
     this.hero = PS.HEROES.find(h => h.id === this.heroId) || PS.HEROES[0];
 
+    // začátek runu → vyžádat anti-cheat token pro pozdější odeslání času
+    PS.LB.startRun();
+
     // ---------- svět a podlaha ----------
     this.physics.world.setBounds(0, 0, M, M);
     this.floor = this.add.tileSprite(0, 0, this.scale.width, this.scale.height, 'floor')
@@ -1218,6 +1221,9 @@ window.GameScene = class GameScene extends Phaser.Scene {
         localStorage.setItem(PS.STORAGE.record, JSON.stringify({ time: this.elapsed, name: playerName }));
       } catch (e) { /* private mode */ }
     }
+
+    // odeslat čas na globální žebříček (online, offline-safe — chyby se ignorují)
+    PS.LB.submit({ time: this.elapsed, name: playerName, heroId: this.hero.id });
 
     // statistiky výbavy pro obrazovku smrti — zbraně (level, damage, killy)
     // seřazené dle damage; barva = barva hrdiny, jehož je útok startovní
