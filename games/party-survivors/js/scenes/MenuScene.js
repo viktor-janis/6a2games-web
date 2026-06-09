@@ -7,6 +7,9 @@ window.MenuScene = class MenuScene extends Phaser.Scene {
   create() {
     const { width: W, height: H } = this.scale;
 
+    // mobil: menu na FIT (obnovit z herního ENVELOPu) — vše viditelné, libovolná orientace
+    if (PS.isTouch) { this.scale.scaleMode = Phaser.Scale.FIT; this.scale.refresh(); }
+
     // HTML šipka „« ZPĚT" (partysurvivors.html) — jen v hlavním menu,
     // jinde by překážela (ve hře je v levém horním rohu HP bar)
     const back = document.getElementById('back-home');

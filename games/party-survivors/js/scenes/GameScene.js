@@ -17,6 +17,9 @@ window.GameScene = class GameScene extends Phaser.Scene {
     // začátek runu → vyžádat anti-cheat token pro pozdější odeslání času
     PS.LB.startRun();
 
+    // mobil: samotná hra vyplní celý displej (ENVELOP); menu zůstávají na FIT
+    if (PS.isTouch) { this.scale.scaleMode = Phaser.Scale.ENVELOP; this.scale.refresh(); }
+
     // ---------- svět a podlaha ----------
     this.physics.world.setBounds(0, 0, M, M);
     this.floor = this.add.tileSprite(0, 0, this.scale.width, this.scale.height, 'floor')

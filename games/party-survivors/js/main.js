@@ -13,11 +13,10 @@
       arcade: { debug: false },
     },
     scale: {
-      // Mobil: ENVELOP = canvas vyplní celý displej (bez okrajů), přebytek se
-      // ořízne. Gameplay je kamera-follow, takže ořez okrajů světa je neškodný;
-      // kritický HUD se posouvá přes PS.UI.safeInset(), aby se neořízl.
-      // PC: FIT = beze změny (zachová poměr stran, nic se neořízne).
-      mode: PS.isTouch ? Phaser.Scale.ENVELOP : Phaser.Scale.FIT,
+      // FIT = zachová poměr stran, NIC se neořízne (vše viditelné) — základ pro
+      // PC i mobilní menu. Samotná hra (GameScene) na mobilu přepne na ENVELOP
+      // (vyplní displej), aby se hrálo na celou obrazovku; menu zůstávají FIT.
+      mode: Phaser.Scale.FIT,
       autoCenter: Phaser.Scale.CENTER_BOTH,
     },
     scene: PS.scenes, // scény se registrují samy v pořadí <script> tagů
@@ -38,15 +37,25 @@
     }
     window.addEventListener('pointerdown', () => { if (PS.Audio) PS.Audio.ensure(); }, { once: true });
 
-    const onOrient = () => {
+    // #rotate „otoč na šířku" se ukazuje JEN během hry (běží HUD) a jen na výšku;
+    // v menu (HUD neběží) se nikdy nezobrazí — menu jdou na výšku i na šířku.
+    // Při zobrazení hru pauzne.
+    const updateRotate = () => {
+      const r = document.getElementById('rotate');
+      if (!r) return;
       const g = window.__psGame;
-      if (!g) return;
+      const inGame = !!(g && PS.isTouch && g.scene.isActive('HUD'));
       const portrait = window.matchMedia('(orientation: portrait)').matches;
-      const hud = g.scene.getScene('HUD');
-      if (portrait && g.scene.isActive('Game') && hud && !hud.paused) hud.togglePause();
+      const show = inGame && portrait;
+      r.style.display = show ? 'flex' : 'none';
+      if (show) {
+        const hud = g.scene.getScene('HUD');
+        if (hud && !hud.paused) hud.togglePause();
+      }
     };
-    window.addEventListener('orientationchange', () => setTimeout(onOrient, 250));
-    window.addEventListener('resize', onOrient);
+    window.PS_updateRotate = updateRotate;
+    window.addEventListener('orientationchange', () => setTimeout(updateRotate, 250));
+    window.addEventListener('resize', updateRotate);
   }
 
   // Počkat na font Baloo 2 (max 2,5 s), aby texty nenaskočily špatně.

@@ -14,6 +14,9 @@ window.GameOverScene = class GameOverScene extends Phaser.Scene {
     const { width: W, height: H } = this.scale;
     const r = this.result;
 
+    // mobil: zpět na FIT (po herním ENVELOPu) — celá výsledková obrazovka viditelná
+    if (PS.isTouch) { this.scale.scaleMode = Phaser.Scale.FIT; this.scale.refresh(); }
+
     // ---------- pozadí ----------
     PS.UI.glowBlob(this, W * 0.5, H * 0.32, PS.COLORS.red, 9, 0.10).setDepth(-3);
     PS.UI.glowBlob(this, W * 0.12, H * 0.82, PS.COLORS.purple, 8, 0.08).setDepth(-3);

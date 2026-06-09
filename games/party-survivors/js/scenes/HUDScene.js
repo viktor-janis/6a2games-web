@@ -102,7 +102,12 @@ window.HUDScene = class HUDScene extends Phaser.Scene {
     this.events.once('shutdown', () => {
       this.scale.off('resize', this.layout, this);
       this.gameScene.events.off('announce', this.onAnnounce, this);
+      const rot = document.getElementById('rotate'); // konec hry → skrýt výzvu k otočení
+      if (rot) rot.style.display = 'none';
     });
+
+    // start hry na výšku → hned ukázat výzvu „otoč na šířku" (po inicializaci HUD)
+    this.time.delayedCall(50, () => { if (window.PS_updateRotate) window.PS_updateRotate(); });
   }
 
   // malé kruhové ikonové tlačítko (pauza/zvuk) v rohu HUD
