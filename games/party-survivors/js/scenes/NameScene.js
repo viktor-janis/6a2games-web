@@ -9,9 +9,7 @@ window.NameScene = class NameScene extends Phaser.Scene {
   create() {
     const { width: W, height: H } = this.scale;
 
-    PS.UI.glowBlob(this, W * 0.25, H * 0.25, PS.COLORS.cyan, 8, 0.08);
-    PS.UI.glowBlob(this, W * 0.8, H * 0.7, PS.COLORS.pink, 8, 0.08);
-    PS.UI.confetti(this, 350);
+    PS.UI.clubBackdrop(this); // tmavá klubová atmosféra (sjednoceno s hrou)
 
     PS.UI.title(this, W / 2, 150, 'ZADEJ HERNÍ JMÉNO', 32, PS.COLORS.cyan);
     PS.UI.text(this, W / 2, 210, 'POD TÍMHLE JMÉNEM SE ULOŽÍ TVŮJ REKORD', 11, '#ccccdd');

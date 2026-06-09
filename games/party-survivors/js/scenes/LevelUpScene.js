@@ -87,8 +87,8 @@ window.LevelUpScene = class LevelUpScene extends Phaser.Scene {
         align: 'center', wordWrap: { width: cardW - 40 },
       }).setOrigin(0.5);
       const desc = this.add.text(0, 30, data.desc, {
-        fontFamily: PS.UI.FONT, fontSize: '10px', color: '#ccccdd',
-        align: 'center', lineSpacing: 8, wordWrap: { width: cardW - 44 },
+        fontFamily: PS.UI.FONT, fontSize: '14px', color: '#ccccdd',
+        align: 'center', lineSpacing: 8, wordWrap: { width: cardW - 40 },
       }).setOrigin(0.5);
       const num = PS.UI.text(this, -cardW / 2 + 22, -cardH / 2 + 22, String(i + 1), 12, '#8888aa');
       container.add([bg, head, name, desc, num]);

@@ -111,6 +111,9 @@ PS.Spawner = class Spawner {
 
     const enemy = scene.enemies.get(x, y, 'enemy-' + info.type.id);
     if (!enemy) return null;
+    // POOL: group.get() při recyklaci texturu NEnastaví → jinak by recyklovaný
+    // sprite zůstal se skinem předchozího typu nepřítele. Nastavit ručně.
+    enemy.setTexture('enemy-' + info.type.id);
     enemy.setActive(true).setVisible(true);
     enemy.body.enable = true;
     enemy.body.reset(x, y);
@@ -177,6 +180,9 @@ PS.Spawner = class Spawner {
 
     const boss = scene.enemies.get(bx, by, 'boss-' + def.id);
     if (!boss) return;
+    // POOL: group.get() při recyklaci mrtvého spritu NEnastaví texturu (jen pozici),
+    // takže by boss zdědil skin po předchozím nepříteli/bossovi → nutno explicitně.
+    boss.setTexture('boss-' + def.id);
     boss.setActive(true).setVisible(true);
     boss.body.enable = true;
     boss.body.reset(bx, by);

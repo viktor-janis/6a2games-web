@@ -23,9 +23,7 @@ window.SettingsScene = class SettingsScene extends Phaser.Scene {
     // z pauzy: neprůhledné pozadí, ať není vidět běžící hra pod překryvem
     if (this.fromPause) this.add.rectangle(W / 2, H / 2, W * 3, H * 3, PS.COLORS.bg, 1).setDepth(-3);
 
-    PS.UI.glowBlob(this, W * 0.8, H * 0.2, PS.COLORS.cyan, 7, 0.07);
-    PS.UI.glowBlob(this, W * 0.15, H * 0.8, PS.COLORS.pink, 8, 0.07);
-    PS.UI.confetti(this, 350);
+    PS.UI.clubBackdrop(this); // tmavá klubová atmosféra (sjednoceno s hrou)
 
     PS.UI.title(this, W / 2, 70, 'NASTAVENÍ', 36, PS.COLORS.cyan);
 
@@ -135,7 +133,9 @@ window.SettingsScene = class SettingsScene extends Phaser.Scene {
     fs.onClick = () => {
       // iPhone Safari nepodporuje Fullscreen API → poradit „Přidat na plochu"
       if (this.scale.fullscreen.available) PS.goFullscreen(this);
-      else PS.UI.toast(this, 'iPHONE: SDÍLET ⎋ → PŘIDAT NA PLOCHU A SPUSŤ ODTUD');
+      else PS.UI.toast(this,
+        'CELÁ OBRAZOVKA NA iPHONU:\nV Safari ťukni dole na SDÍLET,\npak „PŘIDAT NA PLOCHU" a spusť hru\nz nové ikony na ploše.',
+        { size: 26, hold: 6500, y: H / 2 });
     };
     size.onClick = () => { si = (si + 1) % SIZES.length; save(); refresh(); };
     opac.onClick = () => { oi = (oi + 1) % OPACS.length; save(); refresh(); };

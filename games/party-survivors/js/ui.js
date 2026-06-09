@@ -143,17 +143,22 @@ PS.UI = {
     return api;
   },
 
-  // Krátká zpráva dole na obrazovce (fade out)
-  toast(scene, msg) {
+  // Krátká zpráva na obrazovce (fade out). opts: { size, hold (ms), y } — pro
+  // delší/větší hlášky (např. návod na celou obrazovku na iPhonu).
+  toast(scene, msg, opts = {}) {
     const { width: W, height: H } = scene.scale;
-    const t = scene.add.text(W / 2, H - 60, msg, {
-      fontFamily: this.FONT, fontStyle: this.W_BODY, fontSize: '14px', color: this.hex(PS.COLORS.yellow),
+    const size = opts.size || 14;
+    const hold = opts.hold != null ? opts.hold : 1600;
+    const y = opts.y != null ? opts.y : H - 60;
+    const t = scene.add.text(W / 2, y, msg, {
+      fontFamily: this.FONT, fontStyle: this.W_BODY, fontSize: size + 'px', color: this.hex(PS.COLORS.yellow),
       backgroundColor: '#1a0033', padding: { x: 16, y: 10 },
+      align: 'center', lineSpacing: 6, wordWrap: { width: W - 80 },
     }).setOrigin(0.5).setDepth(1000).setAlpha(0);
     scene.tweens.add({
       targets: t, alpha: 1, duration: 150,
       onComplete: () => scene.tweens.add({
-        targets: t, alpha: 0, delay: 1600, duration: 400,
+        targets: t, alpha: 0, delay: hold, duration: 400,
         onComplete: () => t.destroy(),
       }),
     });
@@ -180,6 +185,45 @@ PS.UI = {
     return scene.add.image(x, y, 'glow').setTint(color).setScale(scale).setAlpha(alpha).setDepth(-2);
   },
 
+  // Klubová atmosféra na pozadí menu — sjednoceno s vizuálem hry: pomalu
+  // bloudící barevné reflektory (ADD blend), jemné stoupající světelné částice
+  // místo konfet a vinětace (text/UI vystupuje ze tmy). Vše je ZA obsahem
+  // (záporné depth), takže neovlivní čitelnost ani hover tlačítek.
+  clubBackdrop(scene) {
+    const W = scene.scale.width, H = scene.scale.height;
+
+    // reflektory — měkká barevná světla, pomalu bloudí a pulzují
+    [[0.18, 0.22, PS.COLORS.pink], [0.84, 0.30, PS.COLORS.cyan],
+     [0.50, 0.90, PS.COLORS.purple], [0.30, 0.66, PS.COLORS.pink]]
+      .forEach(([fx, fy, col]) => {
+        const l = scene.add.image(W * fx, H * fy, 'glow')
+          .setScrollFactor(0).setDepth(-3).setBlendMode(Phaser.BlendModes.ADD)
+          .setTint(col).setScale(7).setAlpha(0.10);
+        scene.tweens.add({
+          targets: l,
+          x: l.x + Phaser.Math.Between(-120, 120), y: l.y + Phaser.Math.Between(-80, 80),
+          alpha: { from: 0.05, to: 0.15 }, duration: Phaser.Math.Between(3200, 5400),
+          yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
+        });
+      });
+
+    // jemné stoupající světelné částice (klubový opar) — náhrada za konfety
+    scene.add.particles(0, 0, 'px', {
+      x: { min: 0, max: W }, y: H + 8,
+      lifespan: 9000,
+      speedY: { min: -34, max: -12 }, speedX: { min: -12, max: 12 },
+      scale: { min: 1.4, max: 3.6 },
+      alpha: { start: 0.14, end: 0 },
+      tint: [PS.COLORS.pink, PS.COLORS.cyan, PS.COLORS.purple],
+      blendMode: 'ADD',
+      quantity: 1, frequency: 300,
+    }).setDepth(-2);
+
+    // vinětace — ztmavené okraje jako ve hře (za obsahem)
+    scene.add.image(W / 2, H / 2, 'vignette')
+      .setScrollFactor(0).setDepth(-1).setDisplaySize(W + 40, H + 40);
+  },
+
   // Bezpečné okraje v HERNÍCH souřadnicích — kolik px je u režimu ENVELOP
   // useknuto za okrajem viewportu (na každé straně). Na PC (bez ořezu) ~nuly.
   safeInset(scene) {
@@ -195,6 +239,17 @@ PS.UI = {
       bottom: Math.max(0, r.bottom - vh) / sy,
     };
   },
+};
+
+// Spolehlivé přepnutí scale režimu za běhu (mobil). Jen nastavit `scaleMode`
+// NESTAČÍ — Phaser nepřepočítá layout, dokud se nepřenastaví i interní
+// displaySize.aspectMode; jinak canvas zůstane v původním režimu (např. hra
+// hlásí ENVELOP, ale reálně letterboxuje jako FIT → černé okraje, malé postavy).
+PS.applyScaleMode = function (scene, mode) {
+  const sm = scene.scale;
+  sm.scaleMode = mode;
+  if (sm.displaySize && sm.displaySize.setAspectMode) sm.displaySize.setAspectMode(mode);
+  sm.refresh();
 };
 
 // Celá obrazovka + pokus o zámek orientace na šířku (mobil). Bezpečné na PC.

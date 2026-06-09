@@ -8,9 +8,7 @@ window.HeroSelectScene = class HeroSelectScene extends Phaser.Scene {
   create() {
     const { width: W, height: H } = this.scale;
 
-    PS.UI.glowBlob(this, W * 0.12, H * 0.2, PS.COLORS.purple, 8, 0.08);
-    PS.UI.glowBlob(this, W * 0.9, H * 0.7, PS.COLORS.pink, 8, 0.08);
-    PS.UI.confetti(this, 300);
+    PS.UI.clubBackdrop(this); // tmavá klubová atmosféra (sjednoceno s hrou)
 
     PS.UI.title(this, W / 2, 52, 'VYBER SI HRDINU', 30, PS.COLORS.pink);
 

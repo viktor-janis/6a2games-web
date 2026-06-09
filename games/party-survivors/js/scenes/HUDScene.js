@@ -193,13 +193,13 @@ window.HUDScene = class HUDScene extends Phaser.Scene {
   // Volby sdílí localStorage s NASTAVENÍ v hlavním menu → propisují se oběma směry.
   openSettings() {
     this.input.enabled = false; // pauza pod překryvem nereaguje
-    if (PS.isTouch) { this.scale.scaleMode = Phaser.Scale.FIT; this.scale.refresh(); } // menu = FIT (nic se neořízne)
+    if (PS.isTouch) PS.applyScaleMode(this, Phaser.Scale.FIT); // menu = FIT (nic se neořízne)
     this.scene.launch('Settings', { fromPause: true });
     this.scene.bringToTop('Settings'); // Settings je registrovaný PŘED HUD → vytáhnout navrch
     const s = this.scene.get('Settings');
     s.events.once('shutdown', () => {
       this.input.enabled = true;
-      if (PS.isTouch) { this.scale.scaleMode = Phaser.Scale.ENVELOP; this.scale.refresh(); } // zpět na herní výplň
+      if (PS.isTouch) PS.applyScaleMode(this, Phaser.Scale.ENVELOP); // zpět na herní výplň
       this.layout();
     });
   }

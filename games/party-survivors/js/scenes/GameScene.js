@@ -18,7 +18,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
     PS.LB.startRun();
 
     // mobil: samotná hra vyplní celý displej (ENVELOP); menu zůstávají na FIT
-    if (PS.isTouch) { this.scale.scaleMode = Phaser.Scale.ENVELOP; this.scale.refresh(); }
+    if (PS.isTouch) PS.applyScaleMode(this, Phaser.Scale.ENVELOP);
 
     // ---------- svět a podlaha ----------
     this.physics.world.setBounds(0, 0, M, M);
@@ -125,6 +125,8 @@ window.GameScene = class GameScene extends Phaser.Scene {
     // ---------- kamera ----------
     this.cameras.main.setBounds(0, 0, M, M);
     this.cameras.main.startFollow(this.player, true, 0.12, 0.12);
+    // mobil: mírné přiblížení → větší postavy (FOV se trochu zúží). Laditelné.
+    if (PS.isTouch) this.cameras.main.setZoom(1.2);
 
     // ---------- zbraně (hrdina startuje se svým útokem) ----------
     this.weapons = [new PS.Weapon(this, this.hero.attackId)];

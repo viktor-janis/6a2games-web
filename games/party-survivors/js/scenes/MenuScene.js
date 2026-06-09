@@ -8,7 +8,7 @@ window.MenuScene = class MenuScene extends Phaser.Scene {
     const { width: W, height: H } = this.scale;
 
     // mobil: menu na FIT (obnovit z herního ENVELOPu) — vše viditelné, libovolná orientace
-    if (PS.isTouch) { this.scale.scaleMode = Phaser.Scale.FIT; this.scale.refresh(); }
+    if (PS.isTouch) PS.applyScaleMode(this, Phaser.Scale.FIT);
 
     // HTML šipka „« ZPĚT" (partysurvivors.html) — jen v hlavním menu,
     // jinde by překážela (ve hře je v levém horním rohu HP bar)
@@ -18,11 +18,8 @@ window.MenuScene = class MenuScene extends Phaser.Scene {
       this.events.once('shutdown', () => { back.style.display = 'none'; });
     }
 
-    // Pozadí — barevná party světla + konfety
-    PS.UI.glowBlob(this, W * 0.2, H * 0.25, PS.COLORS.pink, 8, 0.10);
-    PS.UI.glowBlob(this, W * 0.85, H * 0.6, PS.COLORS.purple, 9, 0.10);
-    PS.UI.glowBlob(this, W * 0.5, H * 0.95, PS.COLORS.cyan, 7, 0.07);
-    PS.UI.confetti(this);
+    // Pozadí — tmavá klubová atmosféra (sjednoceno s vizuálem hry)
+    PS.UI.clubBackdrop(this);
 
     // Titulek
     const title = PS.UI.title(this, W / 2, 130, 'PARTY SURVIVORS', 52, PS.COLORS.pink);

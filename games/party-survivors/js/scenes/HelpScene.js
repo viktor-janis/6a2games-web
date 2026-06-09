@@ -8,9 +8,7 @@ window.HelpScene = class HelpScene extends Phaser.Scene {
     const { width: W, height: H } = this.scale;
     const keys = PS.Keys.load();
 
-    PS.UI.glowBlob(this, W * 0.15, H * 0.2, PS.COLORS.yellow, 7, 0.07);
-    PS.UI.glowBlob(this, W * 0.85, H * 0.75, PS.COLORS.green, 8, 0.07);
-    PS.UI.confetti(this, 350);
+    PS.UI.clubBackdrop(this); // tmavá klubová atmosféra (sjednoceno s hrou)
 
     PS.UI.title(this, W / 2, 70, 'VYSVĚTLIVKY', 36, PS.COLORS.yellow);
 

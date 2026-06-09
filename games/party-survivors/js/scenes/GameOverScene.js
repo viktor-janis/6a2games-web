@@ -15,12 +15,10 @@ window.GameOverScene = class GameOverScene extends Phaser.Scene {
     const r = this.result;
 
     // mobil: zpět na FIT (po herním ENVELOPu) — celá výsledková obrazovka viditelná
-    if (PS.isTouch) { this.scale.scaleMode = Phaser.Scale.FIT; this.scale.refresh(); }
+    if (PS.isTouch) PS.applyScaleMode(this, Phaser.Scale.FIT);
 
     // ---------- pozadí ----------
-    PS.UI.glowBlob(this, W * 0.5, H * 0.32, PS.COLORS.red, 9, 0.10).setDepth(-3);
-    PS.UI.glowBlob(this, W * 0.12, H * 0.82, PS.COLORS.purple, 8, 0.08).setDepth(-3);
-    PS.UI.confetti(this, 400).setDepth(-3);
+    PS.UI.clubBackdrop(this); // tmavá klubová atmosféra (sjednoceno s hrou)
 
     // ---------- titulek ----------
     PS.UI.title(this, W / 2, 54, 'KONEC PÁRTY', 40, PS.COLORS.red);

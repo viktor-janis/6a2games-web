@@ -10,9 +10,7 @@ window.LeaderboardScene = class LeaderboardScene extends Phaser.Scene {
     this._dead = false;
     this.events.once('shutdown', () => { this._dead = true; });
 
-    PS.UI.glowBlob(this, W * 0.18, H * 0.22, PS.COLORS.cyan, 8, 0.09);
-    PS.UI.glowBlob(this, W * 0.85, H * 0.72, PS.COLORS.pink, 8, 0.09);
-    PS.UI.confetti(this, 320);
+    PS.UI.clubBackdrop(this); // tmavá klubová atmosféra (sjednoceno s hrou)
 
     PS.UI.title(this, W / 2, 78, 'LEADERBOARD', 44, PS.COLORS.cyan);
     PS.UI.text(this, W / 2, 132, 'GLOBÁLNÍ TOP 10 — NEJDELŠÍ PŘEŽITÍ', 12, PS.UI.hex(PS.COLORS.yellow));
