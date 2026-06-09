@@ -4,11 +4,24 @@
 window.SettingsScene = class SettingsScene extends Phaser.Scene {
   constructor() { super('Settings'); }
 
+  init(data) {
+    this.fromPause = !!(data && data.fromPause); // otevřeno jako překryv z pauzy ve hře?
+  }
+
+  // odchod: z pauzy zavřít překryv (zpět do hry), jinak do hlavního menu
+  exit() {
+    if (this.fromPause) this.scene.stop();
+    else this.scene.start('Menu');
+  }
+
   create() {
     const { width: W, height: H } = this.scale;
     this.keys = PS.Keys.load();
     this.listening = null;   // id akce, pro kterou se čeká na klávesu
     this.listenTween = null;
+
+    // z pauzy: neprůhledné pozadí, ať není vidět běžící hra pod překryvem
+    if (this.fromPause) this.add.rectangle(W / 2, H / 2, W * 3, H * 3, PS.COLORS.bg, 1).setDepth(-3);
 
     PS.UI.glowBlob(this, W * 0.8, H * 0.2, PS.COLORS.cyan, 7, 0.07);
     PS.UI.glowBlob(this, W * 0.15, H * 0.8, PS.COLORS.pink, 8, 0.07);
@@ -56,7 +69,7 @@ window.SettingsScene = class SettingsScene extends Phaser.Scene {
     this.btnReset = PS.UI.button(this, W / 2 - 190, H - 60, 320, 56, 'VÝCHOZÍ', { fontSize: 14 });
     this.btnBack = PS.UI.button(this, W / 2 + 190, H - 60, 320, 56, 'ZPĚT', { fontSize: 14 });
     this.btnReset.onClick = () => { if (!this.listening) this.resetKeys(); };
-    this.btnBack.onClick = () => { if (!this.listening) this.scene.start('Menu'); };
+    this.btnBack.onClick = () => { if (!this.listening) this.exit(); };
     this.btnReset.onHover = () => { if (!this.listening) this.select(this.ACTIONS.length); };
     this.btnBack.onHover = () => { if (!this.listening) this.select(this.ACTIONS.length + 1); };
 
@@ -70,7 +83,7 @@ window.SettingsScene = class SettingsScene extends Phaser.Scene {
     this.input.keyboard.on('keydown-ENTER', (e) => { if (!this.listening && !e.repeat) this.confirm(); });
     this.input.keyboard.on('keydown-ESC', () => {
       if (this.listening) this.stopListening();
-      else this.scene.start('Menu');
+      else this.exit();
     });
 
     // Zachytávání nové klávesy
@@ -126,8 +139,8 @@ window.SettingsScene = class SettingsScene extends Phaser.Scene {
     };
     size.onClick = () => { si = (si + 1) % SIZES.length; save(); refresh(); };
     opac.onClick = () => { oi = (oi + 1) % OPACS.length; save(); refresh(); };
-    back.onClick = () => this.scene.start('Menu');
-    this.input.keyboard.on('keydown-ESC', () => this.scene.start('Menu'));
+    back.onClick = () => this.exit();
+    this.input.keyboard.on('keydown-ESC', () => this.exit());
 
     PS.UI.text(this, W / 2, H - 22, 'ŤUKNI PRO ZMĚNU', 10, '#8888aa');
   }
@@ -168,7 +181,7 @@ window.SettingsScene = class SettingsScene extends Phaser.Scene {
     } else if (this.selectedIndex === this.ACTIONS.length) {
       this.resetKeys();
     } else {
-      this.scene.start('Menu');
+      this.exit();
     }
   }
 

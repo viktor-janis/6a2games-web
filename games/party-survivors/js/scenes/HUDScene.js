@@ -62,23 +62,35 @@ window.HUDScene = class HUDScene extends Phaser.Scene {
     const binds = PS.Keys.load();
     this.pauseUi = this.add.container(0, 0).setVisible(false).setDepth(100);
     this.pauseBg = this.add.rectangle(W / 2, H / 2, W * 3, H * 3, 0x050010, 0.7); // přesah kryje i ořez
-    this.pauseTitle = PS.UI.title(this, W / 2, H / 2 - 90, 'PAUZA', 40, PS.COLORS.cyan);
-    this.pauseHint = PS.UI.text(this, W / 2, H / 2 + 150,
-      `${PS.Keys.label(binds.pause)}: POKRAČOVAT   ·   ESC: DO MENU   ·   M: ZVUK`, 11, '#8888aa');
-    // dotyková tlačítka v pauze (fungují i myší na PC)
-    this.pResume = PS.UI.button(this, W / 2, H / 2 - 10, 360, 56, 'POKRAČOVAT');
-    this.pMenu = PS.UI.button(this, W / 2, H / 2 + 58, 360, 56, 'DO MENU');
-    this.pConcede = PS.UI.button(this, W / 2, H / 2 + 90, 480, 56, 'TUHLE RYCHTU VZDÁVÁM',
-      { color: PS.COLORS.red, fontSize: 15 });
-    this.pMute = PS.UI.button(this, W / 2, H / 2 + 126, 360, 48, 'ZVUK: ZAP', { fontSize: 14 });
+    this.pauseTitle = PS.UI.title(this, W / 2, 0, 'PAUZA', 40, PS.COLORS.cyan);
+    this.pauseHint = PS.UI.text(this, W / 2, 0,
+      `${PS.Keys.label(binds.pause)}: POKRAČOVAT   ·   M: ZVUK`, 11, '#8888aa');
+
+    // položky pauzy — všechna pole STEJNĚ ŠIROKÁ; zvýraznění na hover jako v hlavním menu
+    const BW = 460, BH = 60;
+    this.pResume = PS.UI.button(this, W / 2, 0, BW, BH, 'POKRAČOVAT');
+    this.pSettings = PS.UI.button(this, W / 2, 0, BW, BH, 'NASTAVENÍ');
+    this.pConcede = PS.UI.button(this, W / 2, 0, BW, BH, 'TUHLE RYCHTU VZDÁVÁM', { color: PS.COLORS.red });
     this.pResume.onClick = () => this.togglePause();
-    this.pMenu.onClick = () => this.quitToMenu();
-    this.pConcede.onClick = () => this.concede();
-    this.pConcede.onHover = () => this.pConcede.setSelected(true);        // hover → červená výplň
-    this.pConcede.bg.on('pointerout', () => this.pConcede.setSelected(false));
-    this.pMute.onClick = () => this.toggleMute();
-    this.pauseUi.add([this.pauseBg, this.pauseTitle, this.pauseHint,
-      this.pResume.container, this.pMenu.container, this.pConcede.container, this.pMute.container]);
+    this.pSettings.onClick = () => this.openSettings();
+    this.pConcede.onClick = () => this.showConcedeConfirm();
+    this.pauseItems = [this.pResume, this.pSettings, this.pConcede];
+    this.selectPause = this.makeHoverGroup(this.pauseItems);
+
+    // potvrzení vzdání hry (zobrazí se MÍSTO položek pauzy)
+    this.confirmTitle = PS.UI.title(this, W / 2, 0, 'OPRAVDU VZDÁVÁŠ HRU?', 24, PS.COLORS.red);
+    this.cYes = PS.UI.button(this, W / 2, 0, BW, BH, 'ANO, VZDÁVÁM', { color: PS.COLORS.red });
+    this.cNo = PS.UI.button(this, W / 2, 0, BW, BH, 'NE, ZPĚT DO PAUZY');
+    this.cYes.onClick = () => this.concede();
+    this.cNo.onClick = () => this.hideConcedeConfirm();
+    this.confirmItems = [this.cYes, this.cNo];
+    this.selectConfirm = this.makeHoverGroup(this.confirmItems);
+
+    this.pauseMenuGroup = [this.pauseTitle, this.pauseHint,
+      this.pResume.container, this.pSettings.container, this.pConcede.container];
+    this.confirmGroup = [this.confirmTitle, this.cYes.container, this.cNo.container];
+    this.confirmGroup.forEach(o => o.setVisible(false)); // dialog je defaultně skrytý
+    this.pauseUi.add([this.pauseBg, ...this.pauseMenuGroup, ...this.confirmGroup]);
 
     // ---------- dotyková tlačítka pauza / zvuk (roh, jen na dotyk) ----------
     if (PS.isTouch) {
@@ -89,7 +101,6 @@ window.HUDScene = class HUDScene extends Phaser.Scene {
     // ---------- klávesy (PC) ----------
     this.input.keyboard.on('keydown', (e) => {
       if (e.code === binds.pause && !e.repeat) this.togglePause();
-      else if (e.code === 'Escape' && this.paused) this.quitToMenu();
       else if (e.code === 'KeyM' && !e.repeat) this.toggleMute();
     });
 
@@ -148,12 +159,15 @@ window.HUDScene = class HUDScene extends Phaser.Scene {
     // pauza — vycentrovat do bezpečné oblasti
     const pcy = (SY + SB) / 2;
     this.pauseBg.setPosition(W / 2, H / 2);
-    this.pauseTitle.setPosition(SCX, pcy - 150);
-    this.pResume.container.setPosition(SCX, pcy - 86);
-    this.pMenu.container.setPosition(SCX, pcy - 26);
-    this.pConcede.container.setPosition(SCX, pcy + 38);
-    this.pMute.container.setPosition(SCX, pcy + 98);
-    this.pauseHint.setPosition(SCX, pcy + 142);
+    this.pauseTitle.setPosition(SCX, pcy - 120);
+    this.pResume.container.setPosition(SCX, pcy - 44);
+    this.pSettings.container.setPosition(SCX, pcy + 24);
+    this.pConcede.container.setPosition(SCX, pcy + 92);
+    this.pauseHint.setPosition(SCX, pcy + 146);
+    // potvrzovací dialog (na stejném místě jako položky pauzy)
+    this.confirmTitle.setPosition(SCX, pcy - 80);
+    this.cYes.container.setPosition(SCX, pcy + 4);
+    this.cNo.container.setPosition(SCX, pcy + 72);
 
     // dotyková tlačítka — pravý dolní roh bezpečné oblasti
     if (this.pauseBtn) {
@@ -165,24 +179,54 @@ window.HUDScene = class HUDScene extends Phaser.Scene {
   toggleMute() {
     PS.Audio.setMuted(!PS.Audio.muted);
     if (this.muteBtn) this.muteBtn.setGlyph(PS.Audio.muted ? '🔇' : '🔊');
-    if (this.pMute) this.pMute.setLabel(PS.Audio.muted ? 'ZVUK: VYP' : 'ZVUK: ZAP');
     PS.UI.toast(this, PS.Audio.muted ? 'ZVUK: VYPNUTO' : 'ZVUK: ZAPNUTO');
+  }
+
+  // skupina tlačítek se vzájemně výlučným zvýrazněním na hover (jako hlavní menu)
+  makeHoverGroup(items) {
+    const sel = (i) => items.forEach((it, j) => it.setSelected(j === i));
+    items.forEach((it, i) => { it.onHover = () => sel(i); });
+    return sel;
+  }
+
+  // NASTAVENÍ z pauzy — otevře SettingsScene jako překryv; po zavření zpět do pauzy.
+  // Volby sdílí localStorage s NASTAVENÍ v hlavním menu → propisují se oběma směry.
+  openSettings() {
+    this.input.enabled = false; // pauza pod překryvem nereaguje
+    if (PS.isTouch) { this.scale.scaleMode = Phaser.Scale.FIT; this.scale.refresh(); } // menu = FIT (nic se neořízne)
+    this.scene.launch('Settings', { fromPause: true });
+    this.scene.bringToTop('Settings'); // Settings je registrovaný PŘED HUD → vytáhnout navrch
+    const s = this.scene.get('Settings');
+    s.events.once('shutdown', () => {
+      this.input.enabled = true;
+      if (PS.isTouch) { this.scale.scaleMode = Phaser.Scale.ENVELOP; this.scale.refresh(); } // zpět na herní výplň
+      this.layout();
+    });
+  }
+
+  showConcedeConfirm() {
+    this.pauseMenuGroup.forEach(o => o.setVisible(false));
+    this.confirmGroup.forEach(o => o.setVisible(true));
+    this.selectConfirm(1); // výchozí zvýraznění „NE"
+  }
+
+  hideConcedeConfirm() {
+    this.confirmGroup.forEach(o => o.setVisible(false));
+    this.pauseMenuGroup.forEach(o => o.setVisible(true));
+    this.selectPause(0);
   }
 
   togglePause() {
     if (this.scene.isActive('LevelUp') || this.scene.isActive('Runda')) return; // během overlayů nepauzovat
     this.paused = !this.paused;
     this.pauseUi.setVisible(this.paused);
-    if (this.pMute) this.pMute.setLabel(PS.Audio.muted ? 'ZVUK: VYP' : 'ZVUK: ZAP');
     if (PS.Touch) PS.Touch.reset();
-    if (this.paused) this.scene.pause('Game');
-    else this.scene.resume('Game');
-  }
-
-  quitToMenu() {
-    if (PS.Touch) PS.Touch.reset();
-    this.scene.stop('Game');
-    this.scene.start('Menu'); // start z HUD zároveň HUD ukončí
+    if (this.paused) {
+      this.hideConcedeConfirm(); // vždy začni na hlavní pauze (POKRAČOVAT zvýrazněno)
+      this.scene.pause('Game');
+    } else {
+      this.scene.resume('Game');
+    }
   }
 
   // „Tuhle rychtu vzdávám" — udělá totéž co smrt ve hře (konec běhu → GameOver,
