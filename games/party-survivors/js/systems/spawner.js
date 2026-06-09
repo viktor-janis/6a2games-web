@@ -152,15 +152,34 @@ PS.Spawner = class Spawner {
     const m = PS.BALANCE.mapSize;
     const cx = Phaser.Math.Clamp(scene.player.x, r + 80, m - r - 80);
     const cy = Phaser.Math.Clamp(scene.player.y, r + 80, m - r - 80);
-    // boss nastoupí uvnitř arény, na protější stranu než stojí hrdina
-    const a = Phaser.Math.Angle.Between(cx, cy, scene.player.x, scene.player.y) + Math.PI;
-    const pos = { x: cx + Math.cos(a) * r * 0.55, y: cy + Math.sin(a) * r * 0.55 };
 
-    const boss = scene.enemies.get(pos.x, pos.y, 'boss-' + def.id);
+    // 1) nejdřív se uzavře ring (boss zatím není), 2) po 2 s se boss objeví UVNITŘ.
+    // Dřív boss vznikal současně s ringem a dav ho při uzavírání vytlačil ven →
+    // nedostal se zpět dovnitř (nešel přes zeď nepřátel). Takhle vznikne až v aréně.
+    scene.startBossFight(cx, cy);
+    scene.time.delayedCall(2000, () => this.placeBoss(def, level, strength));
+  }
+
+  // boss se objeví NÁHODNĚ uvnitř už uzavřeného ringu (ne přímo na hrdinovi)
+  placeBoss(def, level, strength) {
+    const scene = this.scene;
+    if (scene.over || !scene.bossFight) return; // hra skončila / ring se mezitím rozpadl
+    const { cx, cy, r } = scene.bossFight;
+
+    // náhodná pozice uvnitř ringu (do ~0,7r od středu), ale ne přilepená na hrdinu
+    let bx, by, tries = 0;
+    do {
+      const ang = Math.random() * Math.PI * 2;
+      const rad = (0.25 + Math.random() * 0.45) * r;
+      bx = cx + Math.cos(ang) * rad;
+      by = cy + Math.sin(ang) * rad;
+    } while (++tries < 8 && Phaser.Math.Distance.Between(bx, by, scene.player.x, scene.player.y) < 150);
+
+    const boss = scene.enemies.get(bx, by, 'boss-' + def.id);
     if (!boss) return;
     boss.setActive(true).setVisible(true);
     boss.body.enable = true;
-    boss.body.reset(pos.x, pos.y);
+    boss.body.reset(bx, by);
     boss.setDepth(6);
     boss.setScale(2.1 + (level - 1) * 0.25);
     if (level > 1) boss.setTint(0xff9e9e); else boss.clearTint();
@@ -185,12 +204,10 @@ PS.Spawner = class Spawner {
     boss.lastOrbHit = 0;
     boss.ringWall = false;
 
+    scene.bossFight.boss = boss; // teprve teď je v aréně skutečný boss
     scene.events.emit('announce', { text: `BOSS: ${boss.bossName}!`, color: PS.COLORS.red });
     scene.cameras.main.shake(300, 0.006);
     PS.Audio.boss();
-
-    // nepřátelé utvoří ring — souboj 1v1 v aréně (viz GameScene.startBossFight)
-    scene.startBossFight(boss, cx, cy);
   }
 
   // pozice na prstenci kolem hráče, oříznutá na hranice mapy

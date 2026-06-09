@@ -701,9 +701,10 @@ window.GameScene = class GameScene extends Phaser.Scene {
   // nezranitelnou zeď. Hrdina bojuje jen s bossem (a případnými vyvolanci
   // Haadese); ring nelze prorazit — clampToArena. Po smrti bosse se zeď
   // rozpustí a nepřátelé pokračují v normálním útoku.
-  startBossFight(boss, cx, cy) {
+  startBossFight(cx, cy) {
     const r = PS.BALANCE.arenaRadius;
-    this.bossFight = { boss, cx, cy, r };
+    // boss se přidá až po 2 s (spawner.placeBoss) — ring se nejdřív v klidu uzavře
+    this.bossFight = { boss: null, cx, cy, r };
     this.ringFormUntil = this.time.now + 11000; // sprint: ring se uzavře rychle (větší poloměr = delší cesty)
 
     // neonový okraj arény
