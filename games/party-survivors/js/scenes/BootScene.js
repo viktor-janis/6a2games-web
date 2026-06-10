@@ -86,165 +86,357 @@ window.BootScene = class BootScene extends Phaser.Scene {
   }
 
   // ============ HRDINOVÉ — 'hero-<id>' 64×64 ============
-  // Každý unikátní obličej/rysy + odlišná výška a tón pleti (ne jen barva).
+  // Realistické stylizované postavy do temného klubu: štíhlejší lidské proporce
+  // (menší hlava vůči tělu), tělo z měkkých přechodů a záhybů, klubový dvoutónový
+  // rim-light (cyan zleva / magenta zprava). Každý hrdina má VLASTNÍ siluetu,
+  // postavu i pózu — viz tabulka LOOK + větve uvnitř drawHero.
   makeHeroTextures() {
-    const LOOK = {
-      rashid:     { tall: 1.10, skin: 0xe7b083, hair: 0x2a1c0e, feat: 'mustache' },
-      poskok:     { tall: 1.22, skin: 0xf0c79c, hair: 0x3c2a16, feat: 'tall' },
-      dong:       { tall: 1.00, skin: 0x6e4a2c, hair: 0x140d10, feat: 'afro' },
-      kaar:       { tall: 1.03, skin: 0xddA374, hair: 0x4a3320, feat: 'drool' },
-      fjodor:     { tall: 1.05, skin: 0xd7b187, hair: 0x1d140a, feat: 'shades' },
-      extreme:    { tall: 1.02, skin: 0xe5b187, hair: 0x12101a, feat: 'jacket' },
-      fadadevada: { tall: 1.00, skin: 0xd9c0a2, hair: 0x6b7079, feat: 'vape' },
-      zlozik:     { tall: 1.00, skin: 0xe4a778, hair: 0x2a1408, feat: 'beer' },
-      sajmic:     { tall: 1.00, skin: 0x9c6c41, hair: 0x140f0a, feat: 'backpack' },
-    };
     PS.HEROES.forEach((hero) => {
-      const look = LOOK[hero.id] || { tall: 1, skin: 0xe7b083, hair: 0x222222, feat: '' };
-      this.canvasTex('hero-' + hero.id, 64, 64, (ctx) => this.drawHero(ctx, hero, look));
+      this.canvasTex('hero-' + hero.id, 64, 64, (ctx) => this.drawHero(ctx, hero));
     });
   }
 
-  drawHero(ctx, hero, look) {
-    const B = 56, headR = 9, t = look.tall;
-    const hx = look.feat === 'backpack' ? 35 : 32;       // sajmič mírně z profilu
-    const hcy = 17 - (t - 1) * 34;                        // vyšší hrdina → hlava výš
-    const body = hero.color, skin = look.skin;
-    const bodyTop = hcy + headR - 3, bodyBot = 46;
-    const bodyX = hx - 12, bodyW = 24;
-    ctx.lineJoin = 'round';
+  // tělová „klobása" (capsule) mezi dvěma body — paže/končetiny pod úhlem
+  capsule(ctx, x0, y0, x1, y1, r) {
+    const a = Math.atan2(y1 - y0, x1 - x0), h = Math.PI / 2;
+    ctx.beginPath();
+    ctx.arc(x0, y0, r, a + h, a - h);
+    ctx.arc(x1, y1, r, a - h, a + h);
+    ctx.closePath();
+  }
 
-    this.groundShadow(ctx, 32, B + 2, 16, 4.5);
+  drawHero(ctx, hero) {
+    // pleť / vlasy / výška / šířka ramen (build) / poloměr hlavy / poznávací rys
+    const LOOK = {
+      rashid:     { tall: 1.25, skin: 0xe7b083, hair: 0x2a1c0e, build: 21, headR: 6.6, feat: 'mustache' },
+      poskok:     { tall: 1.40, skin: 0xf0c79c, hair: 0x3c2a16, build: 15, headR: 6.0, feat: 'tall' },
+      dong:       { tall: 1.00, skin: 0x6e4a2c, hair: 0x140d10, build: 22, headR: 6.6, feat: 'afro' },
+      kaar:       { tall: 1.03, skin: 0xddA374, hair: 0x4a3320, build: 20, headR: 6.6, feat: 'drool' },
+      fjodor:     { tall: 1.05, skin: 0xd7b187, hair: 0x1d140a, build: 21, headR: 6.6, feat: 'shades' },
+      extreme:    { tall: 1.02, skin: 0xe5b187, hair: 0x12101a, build: 23, headR: 6.6, feat: 'jacket' },
+      fadadevada: { tall: 1.00, skin: 0xd9c0a2, hair: 0x6b7079, build: 19, headR: 6.6, feat: 'cap' },
+      zlozik:     { tall: 1.00, skin: 0xe4a778, hair: 0x2a1408, build: 20, headR: 6.6, feat: 'beer' },
+      sajmic:     { tall: 1.00, skin: 0x9c6c41, hair: 0x140f0a, build: 20, headR: 6.6, feat: 'backpack' },
+    };
+    const L = LOOK[hero.id] || { tall: 1, skin: 0xe7b083, hair: 0x222222, build: 20, headR: 6.6, feat: '' };
 
-    // batoh (Sajmič) — vykoukne za levým ramenem (náznak profilu)
-    if (look.feat === 'backpack') {
-      const bx = bodyX - 12;
-      ctx.fillStyle = this.cssOf(this.dark(0x2f7d2f, 0));
-      this.litEdge(ctx, () => this.rr(ctx, bx, bodyTop + 1, 15, 27, 5), 64);
-      this.rr(ctx, bx, bodyTop + 1, 15, 27, 5);
-      ctx.fillStyle = this.vGrad(ctx, bodyTop, bodyBot + 6, this.light(0x3a9e4a, 6), this.dark(0x3a9e4a, 14)); ctx.fill();
-      ctx.fillStyle = this.cssOf(this.dark(0x3a9e4a, 26)); this.rr(ctx, bx + 3, bodyTop + 8, 9, 10, 3); ctx.fill();
-    }
+    // ---- geometrie: vyšší = delší trup + nohy, NE větší hlava; postava
+    //      vycentrovaná v 64px (kvůli zarovnání s hitboxem hráče) ----
+    const tall = L.tall, headR = L.headR, neck = 3;
+    const profile = L.feat === 'backpack' ? 3 : 0;       // Sajmič stojí mírně z profilu
+    const hx = 32 + profile;
+    const headStack = headR * 2 + neck;                  // temeno → ramena
+    const torsoLen = 12 * tall, legsLen = 16 * tall;
+    const figureH = headStack + torsoLen + legsLen;
+    const topY = 31 - figureH / 2;
+    const headCY = topY + headR;
+    const shoulderY = topY + headStack;
+    const hipY = shoulderY + torsoLen;
+    const footY = hipY + legsLen;
+    const shoulderW = L.build, waistW = shoulderW * 0.74;
+    const sLx = hx - shoulderW / 2, sRx = hx + shoulderW / 2;
+    const wLx = hx - waistW / 2, wRx = hx + waistW / 2;
+    const sy = shoulderY + 1;
+    const body = hero.color, skin = L.skin, hair = L.hair;
+    const eyeY = headCY + 0.6, noseY = headCY + 3.0, mouthY = headCY + 5.0;
+    const armR = Math.max(2.3, shoulderW * 0.12);
+    const isJacket = L.feat === 'jacket';
+    const sleeveTop = isJacket ? 0x20202e : this.dark(body, 10);
+    const sleeveBot = isJacket ? 0x0e0e16 : this.dark(body, 26);
+
+    ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    this.groundShadow(ctx, 32, footY + 1, 14, 4);
+
+    // batoh za zády (Sajmič) — vykoukne za levým ramenem
+    if (L.feat === 'backpack') this.heroBackpack(ctx, sLx, shoulderY, hipY);
 
     // nohy (tmavé kalhoty) + boty
-    const legY = bodyBot - 2, legH = B - legY;
-    [hx - 9, hx + 1].forEach((lx) => {
-      this.rr(ctx, lx, legY, 8, legH, 3);
-      ctx.fillStyle = this.vGrad(ctx, legY, B, 0x2b2b46, 0x16162c); ctx.fill();
-      ctx.fillStyle = this.cssOf(0x0c0c18); this.rr(ctx, lx - 1, B - 2, 10, 4, 2); ctx.fill();
-    });
+    this.heroLegs(ctx, hx, hipY, footY, waistW);
 
-    // ruce (rukávy = tmavší odstín trika) — za tělem
-    const sleeve = this.dark(body, 16);
-    [[bodyX - 4, 'L'], [bodyX + bodyW - 2, 'R']].forEach(([ax]) => {
-      this.rr(ctx, ax, bodyTop + 3, 6, bodyBot - bodyTop - 4, 3);
-      ctx.fillStyle = this.vGrad(ctx, bodyTop, bodyBot, this.light(sleeve, 6), this.dark(sleeve, 8)); ctx.fill();
-    });
+    // zadní (levá) paže — visí svisle podél boku
+    this.heroArm(ctx, sLx + 1.5, sy + 3, sLx + 1, hipY + 7, armR, sleeveTop, sleeveBot, skin);
 
-    // tělo / triko (eXtreme = bunda ve 3 panelech)
-    const bodyPath = () => this.rr(ctx, bodyX, bodyTop, bodyW, bodyBot - bodyTop, 6);
-    if (look.feat === 'jacket') {
-      ctx.save(); bodyPath(); ctx.clip();
-      const cols = [0x141019, 0x1d4ed8, 0xcc2222];
+    // ----- tělo / triko (zúžené v pase, zaoblená ramena) -----
+    const torsoPath = () => {
+      ctx.beginPath();
+      ctx.moveTo(sLx + 1.5, sy);
+      ctx.quadraticCurveTo(sLx - 0.5, sy + 0.5, sLx, sy + 3.5);
+      ctx.lineTo(wLx, hipY - 1.5);
+      ctx.quadraticCurveTo(wLx, hipY + 1, wLx + 2.5, hipY + 1);
+      ctx.lineTo(wRx - 2.5, hipY + 1);
+      ctx.quadraticCurveTo(wRx, hipY + 1, wRx, hipY - 1.5);
+      ctx.lineTo(sRx, sy + 3.5);
+      ctx.quadraticCurveTo(sRx + 0.5, sy + 0.5, sRx - 1.5, sy);
+      ctx.closePath();
+    };
+    if (isJacket) {
+      // eXtreme — sportovní bunda ve 3 svislých panelech (černá / modrá / červená) + zip
+      ctx.save(); torsoPath(); ctx.clip();
+      const cols = [0x141019, 0x1d4ed8, 0xcc2222], tw = sRx - sLx;
       cols.forEach((col, i) => {
-        ctx.fillStyle = this.vGrad(ctx, bodyTop, bodyBot, this.light(col, 10), this.dark(col, 8));
-        ctx.fillRect(bodyX + (bodyW / 3) * i, bodyTop, bodyW / 3 + 1, bodyBot - bodyTop);
+        ctx.fillStyle = this.vGrad(ctx, sy, hipY + 1, this.light(col, 12), this.dark(col, 6));
+        ctx.fillRect(sLx + (tw / 3) * i - 0.5, sy - 2, tw / 3 + 1, hipY - sy + 6);
       });
-      // zip + límec
-      ctx.fillStyle = 'rgba(230,230,240,0.5)'; ctx.fillRect(hx - 0.7, bodyTop, 1.4, bodyBot - bodyTop);
+      ctx.fillStyle = 'rgba(255,255,255,0.12)'; ctx.fillRect(sLx + 2, sy + 2, tw - 4, 3);          // lesk
+      ctx.fillStyle = 'rgba(225,228,240,0.55)'; ctx.fillRect(hx - 0.7, sy, 1.4, hipY - sy);        // zip
       ctx.restore();
+      ctx.strokeStyle = this.cssOf(0x05050b); ctx.lineWidth = 2;                                   // stojáček
+      ctx.beginPath(); ctx.moveTo(hx - 4, sy + 1); ctx.lineTo(hx, sy + 4); ctx.lineTo(hx + 4, sy + 1); ctx.stroke();
     } else {
-      bodyPath();
-      ctx.fillStyle = this.vGrad(ctx, bodyTop, bodyBot, this.light(body, 16), this.dark(body, 16)); ctx.fill();
-      // jemný horní lesk
-      ctx.fillStyle = 'rgba(255,255,255,0.10)'; this.rr(ctx, bodyX + 3, bodyTop + 2, bodyW - 6, 6, 3); ctx.fill();
+      torsoPath();
+      ctx.fillStyle = this.vGrad(ctx, sy, hipY + 1, this.light(body, 14), this.dark(body, 20)); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.10)';                                                    // klubový lesk na hrudi
+      this.rr(ctx, sLx + 3, sy + 2, shoulderW - 6, 4, 2); ctx.fill();
+      ctx.fillStyle = this.cssOf(this.dark(body, 30), 0.35);                                        // spodní stín
+      this.rr(ctx, wLx + 1, hipY - 6, waistW - 2, 6, 2); ctx.fill();
+      ctx.strokeStyle = this.cssOf(this.dark(body, 26), 0.5); ctx.lineWidth = 1;                    // záhyby látky
+      ctx.beginPath();
+      ctx.moveTo(hx - 3, sy + 5); ctx.lineTo(hx - 4.5, hipY - 3);
+      ctx.moveTo(hx + 3, sy + 5); ctx.lineTo(hx + 4.5, hipY - 3);
+      ctx.moveTo(hx, sy + 6); ctx.lineTo(hx, hipY - 2); ctx.stroke();
+      ctx.fillStyle = this.cssOf(this.dark(skin, 8));                                               // výstřih (náznak krku)
+      ctx.beginPath(); ctx.moveTo(hx - 3, sy); ctx.lineTo(hx, sy + 3.5); ctx.lineTo(hx + 3, sy); ctx.closePath(); ctx.fill();
     }
-    this.litEdge(ctx, bodyPath, 64);
+    this.litEdge(ctx, torsoPath, 64);
 
-    // pivko v ruce (Zložík) — láhev u pravé ruky
-    if (look.feat === 'beer') {
-      const bxx = bodyX + bodyW + 1, byy = bodyBot - 12;
-      ctx.fillStyle = this.cssOf(skin); ctx.beginPath(); ctx.arc(bxx + 1, byy + 12, 3.5, 0, 7); ctx.fill(); // ruka
-      this.rr(ctx, bxx, byy, 6, 13, 2);
-      ctx.fillStyle = this.vGrad(ctx, byy, byy + 13, 0x6b4a1e, 0x3c2810); ctx.fill();
-      ctx.fillStyle = this.cssOf(0xffe08a); ctx.fillRect(bxx + 1, byy + 5, 4, 4); // etiketa
-      ctx.fillStyle = this.cssOf(0x3c2810); ctx.fillRect(bxx + 2, byy - 2, 2, 3); // hrdlo
-      ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.beginPath(); ctx.arc(bxx + 3, byy - 2, 2, 0, 7); ctx.fill(); // pěna
-    }
+    // přední (pravá) paže — visí svisle podél boku; Zložík v ní drží lahváč
+    this.heroArm(ctx, sRx - 1.5, sy + 3, sRx - 1, hipY + 7, armR, sleeveTop, sleeveBot, skin);
+    if (L.feat === 'beer') this.heroBeer(ctx, sRx - 1, hipY + 7, skin);
 
-    // hlava
-    const headPath = () => { ctx.beginPath(); ctx.arc(hx, hcy, headR, 0, Math.PI * 2); ctx.closePath(); };
+    // ----- krk -----
+    ctx.fillStyle = this.cssOf(this.dark(skin, 16));
+    this.rr(ctx, hx - 2.4, headCY + headR - 2, 4.8, neck + 3, 1.6); ctx.fill();
+    ctx.fillStyle = this.cssOf(this.dark(skin, 30), 0.5);                                           // stín pod bradou
+    ctx.fillRect(hx - 2.4, headCY + headR - 2, 4.8, 1.6);
+
+    // ----- hlava (objem radiálním přechodem + stín čelisti + uši) -----
+    const headPath = () => { ctx.beginPath(); ctx.arc(hx, headCY, headR, 0, 7); ctx.closePath(); };
     headPath();
-    const hg = ctx.createRadialGradient(hx - 3, hcy - 3, 1, hx, hcy, headR + 2);
-    hg.addColorStop(0, this.cssOf(this.light(skin, 14)));
-    hg.addColorStop(1, this.cssOf(this.dark(skin, 14)));
+    const hg = ctx.createRadialGradient(hx - headR * 0.4, headCY - headR * 0.45, 1, hx, headCY, headR + 2);
+    hg.addColorStop(0, this.cssOf(this.light(skin, 16)));
+    hg.addColorStop(1, this.cssOf(this.dark(skin, 16)));
     ctx.fillStyle = hg; ctx.fill();
-    // krk
-    ctx.fillStyle = this.cssOf(this.dark(skin, 18)); ctx.fillRect(hx - 3, hcy + headR - 3, 6, 5);
+    ctx.fillStyle = this.cssOf(this.dark(skin, 22), 0.32);
+    ctx.beginPath(); ctx.ellipse(hx, headCY + headR * 0.55, headR * 0.66, headR * 0.4, 0, 0, Math.PI); ctx.fill();
+    ctx.fillStyle = this.cssOf(this.dark(skin, 10));
+    ctx.beginPath(); ctx.arc(hx - headR + 0.4, headCY + 0.6, 1.3, 0, 7); ctx.arc(hx + headR - 0.4, headCY + 0.6, 1.3, 0, 7); ctx.fill();
 
-    // vlasy (afro = velký objem; jinak čepice vlasů) — Fjodor brýle nemění vlasy
-    if (look.feat === 'afro') {
-      ctx.fillStyle = this.cssOf(look.hair);
-      [[-7, -5, 7], [0, -8, 8], [7, -5, 7], [-9, 0, 6], [9, 0, 6]].forEach(([dx, dy, rr]) => {
-        ctx.beginPath(); ctx.arc(hx + dx, hcy + dy, rr, 0, Math.PI * 2); ctx.fill();
+    // ----- vlasy / čepice -----
+    if (L.feat === 'afro') {
+      ctx.fillStyle = this.cssOf(this.dark(hair, 2));
+      [[-7, -4, 7], [0, -8, 8], [7, -4, 7], [-9, 1, 6], [9, 1, 6], [0, -3, 8.5]].forEach(([dx, dy, r2]) => {
+        ctx.beginPath(); ctx.arc(hx + dx, headCY + dy, r2, 0, 7); ctx.fill();
       });
-      ctx.fillStyle = 'rgba(255,255,255,0.06)'; ctx.beginPath(); ctx.arc(hx - 4, hcy - 7, 3, 0, 7); ctx.fill();
+      ctx.fillStyle = this.cssOf(this.light(hair, 16), 0.45);
+      [[-4, -7, 2.4], [3, -6, 2], [-7, -1, 1.8], [6, -1, 1.8]].forEach(([dx, dy, r2]) => {
+        ctx.beginPath(); ctx.arc(hx + dx, headCY + dy, r2, 0, 7); ctx.fill();
+      });
+    } else if (L.feat === 'cap') {
+      this.heroCap(ctx, hx, headCY, headR, hair);                                                   // fadadevada — kšiltovka
     } else {
-      ctx.fillStyle = this.cssOf(look.hair);
-      ctx.beginPath(); ctx.arc(hx, hcy - 1, headR, Math.PI, 0, false);
-      ctx.lineTo(hx + headR, hcy - 2); ctx.lineTo(hx - headR, hcy - 2); ctx.closePath(); ctx.fill();
-      if (look.feat === 'tall') { // Poskok — vyšší účes (víc nahoru)
-        ctx.fillRect(hx - headR + 1, hcy - headR - 2, headR * 2 - 2, 4);
+      this.hairCap(ctx, hx, headCY, headR, hair, -headR * 0.22);
+      if (L.feat === 'tall') {                                                                      // Poskok — vysoká vyčesaná ofina
+        ctx.fillStyle = this.cssOf(hair);
+        ctx.beginPath();
+        ctx.moveTo(hx - headR + 1, headCY - headR + 1);
+        ctx.quadraticCurveTo(hx - headR - 1, headCY - headR - 4, hx + 1, headCY - headR - 3);
+        ctx.quadraticCurveTo(hx + headR + 2, headCY - headR - 2, hx + headR - 1, headCY - headR + 1);
+        ctx.closePath(); ctx.fill();
+        ctx.fillStyle = this.cssOf(this.light(hair, 16), 0.5);
+        ctx.beginPath(); ctx.moveTo(hx - 1, headCY - headR); ctx.lineTo(hx - 2.4, headCY - headR - 2.5); ctx.lineTo(hx + 0.6, headCY - headR - 2.5); ctx.closePath(); ctx.fill();
+      }
+      if (hero.id === 'kaar') {                                                                     // krátké rozcuchané chmýří
+        ctx.strokeStyle = this.cssOf(this.light(hair, 4)); ctx.lineWidth = 1.5;
+        [[-3.5, -1.4], [-1, -1.8], [1.5, -1.6], [3.8, -1.2]].forEach(([dx, dy]) => { ctx.beginPath(); ctx.moveTo(hx + dx, headCY - headR + 1.5); ctx.lineTo(hx + dx + dy * 0.5, headCY - headR - 1.3); ctx.stroke(); });
+      }
+      if (hero.id === 'fjodor') {                                                                   // sčesané dozadu (lesk pramenů)
+        ctx.strokeStyle = this.cssOf(this.light(hair, 22), 0.5); ctx.lineWidth = 0.8;
+        for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.moveTo(hx + i * 2.2, headCY - headR + 1.5); ctx.lineTo(hx + i * 2.2 + 1, headCY - 1); ctx.stroke(); }
       }
     }
 
-    // obličej — oči, obočí, pusa (+ rysy)
-    const eyeY = hcy + 1;
-    if (look.feat === 'shades') {
-      // sluneční brýle — tmavý pásek se dvěma skly + lesk
-      ctx.fillStyle = this.cssOf(0x0b0b14); this.rr(ctx, hx - 7, eyeY - 3, 14, 6, 2); ctx.fill();
-      ctx.fillStyle = this.cssOf(0x161628); ctx.beginPath(); ctx.arc(hx - 3.5, eyeY, 2.6, 0, 7); ctx.arc(hx + 3.5, eyeY, 2.6, 0, 7); ctx.fill();
-      ctx.strokeStyle = 'rgba(160,230,255,0.7)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(hx - 5, eyeY - 1.5); ctx.lineTo(hx - 3, eyeY + 0.5); ctx.stroke();
+    // ----- obličej -----
+    if (L.feat === 'shades') {
+      this.heroShades(ctx, hx, eyeY);
     } else {
-      ctx.fillStyle = this.cssOf(0x10101e);
-      ctx.beginPath(); ctx.arc(hx - 3.4, eyeY, 1.7, 0, 7); ctx.arc(hx + 3.4, eyeY, 1.7, 0, 7); ctx.fill();
-      ctx.fillStyle = 'rgba(255,255,255,0.8)';
-      ctx.beginPath(); ctx.arc(hx - 4, eyeY - 0.6, 0.6, 0, 7); ctx.arc(hx + 2.8, eyeY - 0.6, 0.6, 0, 7); ctx.fill();
-      // obočí
-      ctx.strokeStyle = this.cssOf(look.hair); ctx.lineWidth = 1.2;
-      ctx.beginPath(); ctx.moveTo(hx - 5, eyeY - 3); ctx.lineTo(hx - 2, eyeY - 3.5);
-      ctx.moveTo(hx + 2, eyeY - 3.5); ctx.lineTo(hx + 5, eyeY - 3); ctx.stroke();
+      this.heroEyes(ctx, hx, eyeY, L.feat === 'drool');                                             // Kaar má přivřené oči
+      ctx.strokeStyle = this.cssOf(this.dark(hair, 2)); ctx.lineWidth = 1.3;                        // obočí
+      ctx.beginPath();
+      ctx.moveTo(hx - 4.6, eyeY - 2.6); ctx.lineTo(hx - 1.6, eyeY - 3.1);
+      ctx.moveTo(hx + 1.6, eyeY - 3.1); ctx.lineTo(hx + 4.6, eyeY - 2.6); ctx.stroke();
     }
-
-    // pusa + rysy
-    const mouthY = hcy + 5;
-    if (look.feat === 'mustache') { // Rashid — výrazný knír (handlebar) + pusa
-      ctx.fillStyle = this.cssOf(look.hair);
-      ctx.beginPath(); ctx.ellipse(hx, mouthY - 1, 7, 2.8, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.beginPath(); ctx.moveTo(hx - 7, mouthY - 1); ctx.lineTo(hx - 6.5, mouthY + 3); ctx.lineTo(hx - 3, mouthY); ctx.closePath(); ctx.fill();
-      ctx.beginPath(); ctx.moveTo(hx + 7, mouthY - 1); ctx.lineTo(hx + 6.5, mouthY + 3); ctx.lineTo(hx + 3, mouthY); ctx.closePath(); ctx.fill();
-      ctx.strokeStyle = this.cssOf(this.dark(skin, 38)); ctx.lineWidth = 1; ctx.lineCap = 'round';
-      ctx.beginPath(); ctx.moveTo(hx - 2.5, mouthY + 4); ctx.lineTo(hx + 2.5, mouthY + 4); ctx.stroke();
+    // nos (stín + nozdry)
+    ctx.strokeStyle = this.cssOf(this.dark(skin, 20), 0.55); ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(hx - 0.2, eyeY + 0.6); ctx.lineTo(hx - 0.8, noseY + 0.4); ctx.stroke();
+    ctx.fillStyle = this.cssOf(this.dark(skin, 28), 0.5);
+    ctx.beginPath(); ctx.arc(hx - 1, noseY + 0.8, 0.6, 0, 7); ctx.arc(hx + 1, noseY + 0.8, 0.6, 0, 7); ctx.fill();
+    // pusa / knír
+    if (L.feat === 'mustache') {
+      this.heroMustache(ctx, hx, mouthY, hair, skin);                                               // Rashid — handlebar knír
     } else {
-      ctx.strokeStyle = this.cssOf(this.dark(skin, 35)); ctx.lineWidth = 1.2; ctx.lineCap = 'round';
-      ctx.beginPath(); ctx.moveTo(hx - 2.5, mouthY); ctx.quadraticCurveTo(hx, mouthY + 1.6, hx + 2.5, mouthY); ctx.stroke();
+      ctx.strokeStyle = this.cssOf(this.dark(skin, 34)); ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(hx - 2.4, mouthY); ctx.quadraticCurveTo(hx, mouthY + 1.5, hx + 2.4, mouthY); ctx.stroke();
     }
-    if (look.feat === 'drool') { // Kaar — slina z koutku
-      ctx.strokeStyle = 'rgba(170,225,255,0.85)'; ctx.lineWidth = 1.3; ctx.lineCap = 'round';
-      ctx.beginPath(); ctx.moveTo(hx + 2.5, mouthY + 0.5); ctx.lineTo(hx + 3, mouthY + 6); ctx.stroke();
-      ctx.fillStyle = 'rgba(170,225,255,0.9)'; ctx.beginPath(); ctx.arc(hx + 3, mouthY + 6.5, 1.4, 0, 7); ctx.fill();
-    }
-    if (look.feat === 'vape') { // fadadevada — vapovací pero + obláček dýmu
-      ctx.fillStyle = this.cssOf(0x222633); this.rr(ctx, hx + 5, mouthY - 1, 9, 2.4, 1); ctx.fill();
-      ctx.fillStyle = this.cssOf(0x39c6ff); ctx.fillRect(hx + 13, mouthY - 0.6, 1.4, 1.6);
-      ctx.fillStyle = 'rgba(200,210,220,0.5)';
-      [[hx + 16, mouthY - 3, 3], [hx + 19, mouthY - 6, 4], [hx + 16, mouthY - 9, 3.5]].forEach(([x, y, r]) => {
-        ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
-      });
-    }
+    if (L.feat === 'drool') this.heroDrool(ctx, hx, mouthY);                                        // Kaar — slina z koutku
+    if (L.feat === 'cap') this.heroVape(ctx, hx, mouthY);                                           // fadadevada — vape + dým
 
-    // rim-light hlavy navrch
+    // rim-light hlavy navrch (klubový obrys)
     this.litEdge(ctx, headPath, 64);
+  }
+
+  // ============ dílčí helpery pro hrdiny ============
+  heroLegs(ctx, hx, hipY, footY, hipW) {
+    const legW = Math.max(4.4, hipW * 0.32), gap = 1.2;
+    [hx - gap - legW, hx + gap].forEach((lx) => {
+      this.rr(ctx, lx, hipY - 1, legW, footY - hipY + 1, 3);
+      ctx.fillStyle = this.vGrad(ctx, hipY, footY, 0x2c2c4a, 0x14142c); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.06)'; ctx.fillRect(lx + 1, hipY, legW - 2, 2);             // záhyb nohavice
+      ctx.fillStyle = this.cssOf(0x0b0b16); this.rr(ctx, lx - 1, footY - 2.5, legW + 2, 4.5, 2); ctx.fill(); // bota
+    });
+  }
+
+  heroArm(ctx, sx, sy, hxp, hy, r, sleeveTop, sleeveBot, skin) {
+    // rukáv končí těsně nad zápěstím → ruka je užší (ne „lízátko")
+    const wy = hy - r * 0.7;
+    this.capsule(ctx, sx, sy, hxp, wy, r);
+    ctx.fillStyle = this.vGrad(ctx, sy, hy, this.light(sleeveTop, 4), sleeveBot); ctx.fill();
+    ctx.fillStyle = this.cssOf(this.dark(skin, 4));                                                  // dlaň
+    ctx.beginPath(); ctx.arc(hxp, hy, r * 0.72, 0, 7); ctx.fill();
+    ctx.fillStyle = this.cssOf(this.dark(skin, 16), 0.5);                                            // stín zápěstí
+    ctx.beginPath(); ctx.arc(hxp, wy, r * 0.6, 0, 7); ctx.fill();
+  }
+
+  hairCap(ctx, hx, cy, r, hair, foreheadY) {
+    ctx.fillStyle = this.cssOf(hair);
+    ctx.beginPath();
+    ctx.arc(hx, cy, r + 0.3, Math.PI, 0, false);
+    ctx.lineTo(hx + r + 0.3, cy + foreheadY + 1);
+    ctx.quadraticCurveTo(hx, cy + foreheadY - 1.6, hx - r - 0.3, cy + foreheadY + 1);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = this.cssOf(this.light(hair, 16), 0.55);                                          // odlesk vlasů
+    ctx.beginPath(); ctx.ellipse(hx - r * 0.35, cy - r * 0.6, r * 0.4, r * 0.2, -0.5, 0, 7); ctx.fill();
+  }
+
+  // KŠILTOVKA (baseball cap): kulatá koruna + výrazný kšilt dopředu přes čelo,
+  // širší než hlava → na první pohled jasně čepice s kšiltem, ne beanie/vlasy.
+  heroCap(ctx, hx, cy, r, hair) {
+    ctx.fillStyle = this.cssOf(hair);                                                                // prošedivělé vlasy u uší
+    ctx.fillRect(hx - r, cy - 0.5, 2, r * 0.9); ctx.fillRect(hx + r - 2, cy - 0.5, 2, r * 0.9);
+
+    const cap = 0x2a3552;                  // tmavě modrá kšiltovka (kontrast vůči pleti i triku)
+    const by = cy - r * 0.42;              // čelní hrana koruny / kořen kšiltu
+
+    // ----- KŠILT (bill) — výrazný klenutý kšilt dopředu přes čelo, širší než hlava -----
+    ctx.fillStyle = this.vGrad(ctx, by - 1.6, by + 4, this.light(cap, 14), this.dark(cap, 10));
+    ctx.beginPath();
+    ctx.moveTo(hx - r * 1.6, by + 0.6);
+    ctx.quadraticCurveTo(hx, by - 1.8, hx + r * 1.6, by + 0.6);                                       // horní (klenutá) hrana
+    ctx.quadraticCurveTo(hx + r * 0.7, by + 4.4, hx, by + 4.2);                                       // špička kšiltu dopředu
+    ctx.quadraticCurveTo(hx - r * 0.7, by + 4.4, hx - r * 1.6, by + 0.6);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.28)'; ctx.lineWidth = 1;                                    // lesklá přední hrana
+    ctx.beginPath(); ctx.moveTo(hx - r * 1.48, by + 0.4); ctx.quadraticCurveTo(hx, by - 1.5, hx + r * 1.48, by + 0.4); ctx.stroke();
+    ctx.strokeStyle = this.cssOf(this.dark(cap, 28)); ctx.lineWidth = 1.4;                            // tmavá spodní hrana (oddělí od tváře)
+    ctx.beginPath(); ctx.moveTo(hx - r * 1.4, by + 1.3); ctx.quadraticCurveTo(hx, by + 4.6, hx + r * 1.4, by + 1.3); ctx.stroke();
+    ctx.fillStyle = 'rgba(0,0,0,0.28)';                                                               // stín kšiltu vržený na čelo
+    ctx.beginPath(); ctx.ellipse(hx, by + 3.0, r * 0.9, 1.2, 0, 0, Math.PI); ctx.fill();
+
+    // ----- KORUNA (crown) — dóm nad hlavou, mírně nabobtnalý -----
+    ctx.fillStyle = this.vGrad(ctx, cy - r - 5, by, this.light(cap, 14), this.dark(cap, 4));
+    ctx.beginPath();
+    ctx.moveTo(hx - r - 0.4, by + 0.6);
+    ctx.bezierCurveTo(hx - r - 1.6, cy - r - 1.5, hx - r * 0.5, cy - r - 5, hx, cy - r - 5);
+    ctx.bezierCurveTo(hx + r * 0.5, cy - r - 5, hx + r + 1.6, cy - r - 1.5, hx + r + 0.4, by + 0.6);
+    ctx.closePath(); ctx.fill();
+
+    // švy panelů (6-panel cap)
+    ctx.strokeStyle = this.cssOf(this.dark(cap, 16), 0.7); ctx.lineWidth = 0.9;
+    ctx.beginPath();
+    ctx.moveTo(hx, cy - r - 5); ctx.lineTo(hx, by);
+    ctx.moveTo(hx - r * 0.6, cy - r - 2.4); ctx.lineTo(hx - r * 0.45, by);
+    ctx.moveTo(hx + r * 0.6, cy - r - 2.4); ctx.lineTo(hx + r * 0.45, by);
+    ctx.stroke();
+
+    ctx.fillStyle = this.cssOf(this.light(cap, 18));                                                  // knoflík na temeni
+    ctx.beginPath(); ctx.arc(hx, cy - r - 4.6, 1.4, 0, 7); ctx.fill();
+    ctx.fillStyle = this.cssOf(0x39c6ff);                                                             // logo (svítivý akcent jako vape dioda)
+    ctx.beginPath(); ctx.arc(hx, by - r * 0.5, 1.7, 0, 7); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.12)';                                                         // klubový lesk koruny
+    ctx.beginPath(); ctx.ellipse(hx - r * 0.35, cy - r * 0.75, r * 0.42, r * 0.22, -0.5, 0, 7); ctx.fill();
+  }
+
+  heroEyes(ctx, hx, eyeY, sleepy) {
+    if (sleepy) {                                                                                    // přivřená opilá víčka
+      ctx.strokeStyle = this.cssOf(0x140f0a); ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.moveTo(hx - 5, eyeY); ctx.quadraticCurveTo(hx - 3.4, eyeY + 1.3, hx - 1.8, eyeY);
+      ctx.moveTo(hx + 1.8, eyeY); ctx.quadraticCurveTo(hx + 3.4, eyeY + 1.3, hx + 5, eyeY); ctx.stroke();
+      return;
+    }
+    ctx.fillStyle = 'rgba(236,236,242,0.92)';                                                        // bělmo
+    ctx.beginPath(); ctx.ellipse(hx - 3.3, eyeY, 2, 1.6, 0, 0, 7); ctx.ellipse(hx + 3.3, eyeY, 2, 1.6, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = this.cssOf(0x171019);                                                            // zornice
+    ctx.beginPath(); ctx.arc(hx - 3, eyeY + 0.2, 1.15, 0, 7); ctx.arc(hx + 3.6, eyeY + 0.2, 1.15, 0, 7); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';                                                         // odlesk
+    ctx.beginPath(); ctx.arc(hx - 3.4, eyeY - 0.4, 0.5, 0, 7); ctx.arc(hx + 3.2, eyeY - 0.4, 0.5, 0, 7); ctx.fill();
+  }
+
+  heroShades(ctx, hx, eyeY) {
+    ctx.fillStyle = this.cssOf(0x05050b); this.rr(ctx, hx - 6.2, eyeY - 2.6, 12.4, 5.2, 2); ctx.fill();
+    const g = ctx.createLinearGradient(hx - 6, eyeY, hx + 6, eyeY);
+    g.addColorStop(0, '#10131f'); g.addColorStop(0.5, '#263042'); g.addColorStop(1, '#0d1018');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.ellipse(hx - 3.2, eyeY, 2.6, 2.1, 0, 0, 7); ctx.ellipse(hx + 3.2, eyeY, 2.6, 2.1, 0, 0, 7); ctx.fill();
+    ctx.strokeStyle = this.cssOf(0x05050b); ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(hx - 0.6, eyeY - 1); ctx.lineTo(hx + 0.6, eyeY - 1); ctx.stroke(); // můstek
+    ctx.strokeStyle = 'rgba(150,230,255,0.85)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(hx - 4.6, eyeY - 1.2); ctx.lineTo(hx - 2.6, eyeY + 0.6); ctx.stroke(); // cyan odlesk
+    ctx.strokeStyle = 'rgba(255,140,225,0.7)'; ctx.beginPath(); ctx.moveTo(hx + 2.2, eyeY - 1.2); ctx.lineTo(hx + 4.2, eyeY + 0.6); ctx.stroke(); // magenta odlesk
+  }
+
+  heroMustache(ctx, hx, mouthY, hair, skin) {
+    ctx.strokeStyle = this.cssOf(this.dark(skin, 34)); ctx.lineWidth = 1;                             // pusa pod knírem
+    ctx.beginPath(); ctx.moveTo(hx - 2, mouthY + 2.4); ctx.lineTo(hx + 2, mouthY + 2.4); ctx.stroke();
+    ctx.fillStyle = this.cssOf(hair);
+    ctx.beginPath(); ctx.ellipse(hx, mouthY, 4.6, 1.9, 0, 0, 7); ctx.fill();
+    ctx.lineWidth = 1.6; ctx.strokeStyle = this.cssOf(hair);                                          // zatočené konce nahoru
+    ctx.beginPath();
+    ctx.moveTo(hx - 4.2, mouthY); ctx.quadraticCurveTo(hx - 6.6, mouthY - 0.4, hx - 6, mouthY - 2.6);
+    ctx.moveTo(hx + 4.2, mouthY); ctx.quadraticCurveTo(hx + 6.6, mouthY - 0.4, hx + 6, mouthY - 2.6); ctx.stroke();
+    ctx.fillStyle = this.cssOf(this.light(hair, 14), 0.5); ctx.fillRect(hx - 2, mouthY - 1, 4, 0.8);
+  }
+
+  heroDrool(ctx, hx, mouthY) {
+    ctx.strokeStyle = 'rgba(180,228,255,0.85)'; ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.moveTo(hx + 2.2, mouthY + 0.8); ctx.lineTo(hx + 2.6, mouthY + 5.5); ctx.stroke();
+    ctx.fillStyle = 'rgba(180,228,255,0.9)'; ctx.beginPath(); ctx.arc(hx + 2.6, mouthY + 6, 1.3, 0, 7); ctx.fill();
+  }
+
+  heroVape(ctx, hx, mouthY) {
+    ctx.fillStyle = this.cssOf(0x20242f); this.rr(ctx, hx + 4, mouthY - 1, 8.5, 2.4, 1); ctx.fill();   // pero
+    ctx.fillStyle = this.cssOf(0x39c6ff); ctx.fillRect(hx + 12, mouthY - 0.6, 1.3, 1.6);               // svítící dioda
+    ctx.fillStyle = 'rgba(205,214,224,0.42)';                                                          // obláček dýmu
+    [[hx + 15, mouthY - 3, 3], [hx + 18, mouthY - 6, 3.8], [hx + 15.5, mouthY - 9, 3.2], [hx + 20, mouthY - 9.5, 2.6]].forEach(([x, y, r]) => {
+      ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
+    });
+  }
+
+  heroBeer(ctx, hxp, hyp, skin) {
+    const bx = hxp - 2.5, by = hyp - 16;                                                              // láhev nad rukou
+    this.rr(ctx, bx, by + 5, 6, 12, 2);
+    ctx.fillStyle = this.vGrad(ctx, by + 5, by + 17, 0x7a531f, 0x3c2810); ctx.fill();
+    ctx.fillStyle = this.cssOf(0xffe08a); ctx.fillRect(bx + 1, by + 9, 4, 4);                          // etiketa
+    ctx.fillStyle = this.cssOf(0x2f200c); ctx.fillRect(bx + 2, by, 2, 6);                              // hrdlo
+    ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.beginPath(); ctx.arc(bx + 3, by, 1.6, 0, 7); ctx.fill(); // pěna
+    ctx.strokeStyle = 'rgba(255,255,255,0.4)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(bx + 1, by + 7); ctx.lineTo(bx + 1, by + 15); ctx.stroke(); // odlesk skla
+    ctx.fillStyle = this.cssOf(this.dark(skin, 4)); this.rr(ctx, bx - 1, by + 11, 8, 4, 2); ctx.fill(); // ruka přes láhev
+  }
+
+  heroBackpack(ctx, sLx, shoulderY, hipY) {
+    const bx = sLx - 11, by = shoulderY + 3, bw = 13, bh = hipY - shoulderY + 8;
+    const path = () => this.rr(ctx, bx, by, bw, bh, 4);
+    path(); ctx.fillStyle = this.vGrad(ctx, by, by + bh, this.light(0x2f7d3a, 6), this.dark(0x2f7d3a, 16)); ctx.fill();
+    ctx.fillStyle = this.cssOf(this.dark(0x2f7d3a, 24)); this.rr(ctx, bx + 2.5, by + bh * 0.42, bw - 5, bh * 0.4, 3); ctx.fill(); // kapsa
+    ctx.fillStyle = this.cssOf(0x14140e); ctx.fillRect(bx + bw / 2 - 3, by + bh * 0.4, 6, 2);          // přezka
+    this.litEdge(ctx, path, 64);
   }
 
   // ============ NEPŘÁTELÉ — 'enemy-<id>' 48×48 ============
