@@ -489,7 +489,10 @@ window.GameScene = class GameScene extends Phaser.Scene {
     p.source = cfg.source || null;       // zbraň projektilu (statistiky)
     p.bounces = cfg.bounces || 0;        // odrazy mezi nepřáteli (vajgly)
     p.bounceRange = cfg.bounceRange || 0;
+    p.boxBounce = cfg.boxBounce || null; // odrazy od stěn boxu kolem hrdiny (dým)
+    p.rehit = cfg.boxBounce ? cfg.boxBounce.rehit : 0; // re-hit cooldown pro pierce
     p.hitSet = new Set();
+    p.hitTimes = p.rehit ? new Map() : null; // kdy naposled zasáhl koho (re-hit)
     if (cfg.target) {
       this.physics.moveToObject(p, cfg.target, cfg.speed);
     } else {
@@ -511,12 +514,35 @@ window.GameScene = class GameScene extends Phaser.Scene {
         p.setVelocity(Math.cos(ang) * sp, Math.sin(ang) * sp);
         p.setRotation(ang);
       }
+      // odraz od stěn neviditelného čtverce vycentrovaného na hrdinu (dým)
+      if (p.boxBounce) {
+        const half = p.boxBounce.half;
+        const rx = p.x - this.player.x, ry = p.y - this.player.y;
+        let vx = p.body.velocity.x, vy = p.body.velocity.y, hit = false;
+        if (rx > half && vx > 0) { vx = -vx; hit = true; }
+        else if (rx < -half && vx < 0) { vx = -vx; hit = true; }
+        if (ry > half && vy > 0) { vy = -vy; hit = true; }
+        else if (ry < -half && vy < 0) { vy = -vy; hit = true; }
+        if (hit) { p.setVelocity(vx, vy); p.setRotation(Math.atan2(vy, vx)); }
+      }
     });
   }
 
   projectileHit(proj, enemy) {
     if (!proj.active || !enemy.active) return;
     if (enemy.ringWall) return; // projektily zdí ringu prolétají (nestojí pierce)
+
+    // dým: probodává donekonečna, stejného nepřítele může zasáhnout opakovaně
+    // po `rehit` s (žádné odrazy mezi nepřáteli — jen od stěn boxu)
+    if (proj.rehit) {
+      const now = this.time.now;
+      const last = proj.hitTimes.get(enemy) || 0;
+      if (now - last < proj.rehit * 1000) return;
+      proj.hitTimes.set(enemy, now);
+      this.dealDamage(enemy, proj.dmg, Object.assign({ source: proj.source }, proj.effects));
+      return;
+    }
+
     if (proj.hitSet.has(enemy)) return; // stejný cíl jen jednou
     proj.hitSet.add(enemy);
     this.dealDamage(enemy, proj.dmg, Object.assign({ source: proj.source }, proj.effects));
@@ -648,11 +674,15 @@ window.GameScene = class GameScene extends Phaser.Scene {
     this.kills++;
     this.killEmitter.explode(6, enemy.x, enemy.y);
     if (enemy.isBoss) {
-      // boss rozsype kruh gemů
-      for (let i = 0; i < 8; i++) {
+      // boss rozsype kruh gemů (dva kruhy, ať nejsou na hromadě a líp se sbírají)
+      for (let i = 0; i < 16; i++) {
         const a = i / 8 * Math.PI * 2;
-        this.dropGem(enemy.x + Math.cos(a) * 45, enemy.y + Math.sin(a) * 45, enemy.strength);
+        const rad = i < 8 ? 45 : 80;
+        this.dropGem(enemy.x + Math.cos(a) * rad, enemy.y + Math.sin(a) * rad, enemy.strength);
       }
+      // z každého bosse vypadne klíč-nesmrtelnost — záchrana před davem po fightu
+      const immortal = PS.POWERUPS.find(p => p.id === 'immortal');
+      if (immortal) this.spawnPowerupAt(immortal, enemy.x, enemy.y);
       this.events.emit('announce', { text: `${enemy.bossName} PORAŽEN!`, color: PS.COLORS.yellow });
       this.cameras.main.shake(250, 0.008);
       this.fxCircle(enemy.x, enemy.y, 110, PS.COLORS.yellow);
@@ -956,7 +986,11 @@ window.GameScene = class GameScene extends Phaser.Scene {
     const m = PS.BALANCE.mapSize;
     const x = Phaser.Math.Clamp(this.player.x + Math.cos(a) * r, 40, m - 40);
     const y = Phaser.Math.Clamp(this.player.y + Math.sin(a) * r, 40, m - 40);
+    this.spawnPowerupAt(def, x, y);
+  }
 
+  // vytvoří konkrétní klíček na dané pozici (sdílí spawnPowerup i drop z bosse)
+  spawnPowerupAt(def, x, y) {
     const p = this.powerups.get(x, y, 'key');
     if (!p) return;
     p.setActive(true).setVisible(true);

@@ -3,7 +3,8 @@
 //
 // Tier n (každých tierSeconds): typ (n-1)%5, level ⌊(n-1)/5⌋+1, síla n
 //   gufrau(1) kravaťáci(2) pikaři(3) rodiče(4) policisté(5) gufrau lv2(6)…
-// Boss síly B se spawne při startu tieru B-2 (B = 5, 10, 15, 20, 25, 30…)
+// Boss: časový plán (bossFirst ~2:30, pak à bossInterval ~4:30); n-tý boss
+//   má sílu 5n (B = 5, 10, 15, 20, 25, 30…)
 //   cyklus: Kato Rohony Churaq Haades Schýza → Kato lv2 …
 // ============================================================
 window.PS = window.PS || {};
@@ -25,6 +26,8 @@ PS.Spawner = class Spawner {
     this.surgeUntil = 0;
     this.nextSurge = B.surge.period * (0.5 + Math.random() * 0.4); // první vlnka ~25-45 s
     this.nextHorde = B.horde.period * (0.8 + Math.random() * 0.4); // první horda ~2,1-3 min
+    this.bossCount = 0;                 // kolik bossů už přišlo
+    this.nextBoss = B.bossFirst;        // čas příchodu dalšího bosse (s)
   }
 
   tier() {
@@ -38,6 +41,15 @@ PS.Spawner = class Spawner {
     const B = PS.BALANCE, now = this.elapsed;
     const tier = this.tier();
     if (tier > this.lastTier) { this.lastTier = tier; this.onNewTier(tier); }
+
+    // boss à bossInterval (první v bossFirst); n-tý boss má sílu 5n = cyklus
+    // skinů Kato/Rohony/… Guard: žádný boss během běžícího souboje (pokud čas
+    // vyprší uprostřed fightu, počká a spustí se hned po jeho skončení).
+    if (now >= this.nextBoss && !this.scene.bossFight) {
+      this.bossCount++;
+      this.nextBoss = now + B.bossInterval;
+      this.spawnBoss(this.bossCount * 5);
+    }
 
     // malá vlnka — krátké zvýšení proudu (občasný nápor mezi klidem)
     if (now >= this.nextSurge) {
@@ -69,9 +81,7 @@ PS.Spawner = class Spawner {
         color: PS.COLORS.orange,
       });
     }
-    // boss síly B = tier + 2, pokud je B násobek 5
-    const B = tier + 2;
-    if (B >= 5 && B % 5 === 0) this.spawnBoss(B);
+    // (bossové se nyní spouští časově v update(), ne podle tieru)
   }
 
   // jeden nepřítel ze stálého proudu — mix sil 60/25/15 %, intercept směru pohybu

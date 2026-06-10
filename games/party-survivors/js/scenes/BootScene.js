@@ -591,6 +591,16 @@ window.BootScene = class BootScene extends Phaser.Scene {
       ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.fillRect(2, 2, 1.4, 7); // lesk
     });
 
+    // dým — kouřová šipka (světlá střela s vlečkou kouře a žhavým jádrem)
+    this.canvasTex('proj-sipka', 22, 10, (ctx) => {
+      const t = ctx.createLinearGradient(0, 0, 22, 0);
+      t.addColorStop(0, 'rgba(170,195,210,0)'); t.addColorStop(1, 'rgba(205,220,230,0.75)');
+      ctx.fillStyle = t; this.rr(ctx, 0, 3, 16, 4, 2); ctx.fill(); // vlečka
+      ctx.fillStyle = '#eaf0f4'; // hrot šipky
+      ctx.beginPath(); ctx.moveTo(22, 5); ctx.lineTo(13, 0.5); ctx.lineTo(15.5, 5); ctx.lineTo(13, 9.5); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.beginPath(); ctx.arc(15, 5, 1.8, 0, 7); ctx.fill(); // jádro
+    });
+
     // panák — štamprle s chlastem
     this.canvasTex('panak', 12, 12, (ctx) => {
       ctx.beginPath(); ctx.moveTo(1, 0); ctx.lineTo(11, 0); ctx.lineTo(8.5, 11); ctx.lineTo(3.5, 11); ctx.closePath();

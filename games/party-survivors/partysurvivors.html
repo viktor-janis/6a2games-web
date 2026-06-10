@@ -38,6 +38,8 @@
     #rotate .icon { font-size: 64px; animation: rotateHint 1.8s ease-in-out infinite; }
     #rotate .txt { font-size: 20px; letter-spacing: 1px; color: #00ffff;
       text-shadow: 0 0 10px rgba(0, 255, 255, 0.7); }
+    #rotate .txt2 { font-size: 14px; letter-spacing: 0.5px; color: #ffffff;
+      opacity: 0.85; max-width: 340px; line-height: 1.3; }
     @keyframes rotateHint { 0%, 100% { transform: rotate(-15deg); } 50% { transform: rotate(75deg); } }
     /* šipka zpět na úvodní stránku webu — zobrazuje ji jen MenuScene */
     #back-home {
@@ -57,6 +59,7 @@
   <div id="rotate">
     <div class="icon">📱</div>
     <div class="txt">OTOČ TELEFON NA ŠÍŘKU</div>
+    <div class="txt2">PRO FULLSCREEN JDI DO NASTAVENÍ -&gt; CELÁ OBRAZOVKA</div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.87.0/dist/phaser.min.js"></script>

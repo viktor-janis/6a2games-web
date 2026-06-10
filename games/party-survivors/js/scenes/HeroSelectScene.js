@@ -41,15 +41,15 @@ window.HeroSelectScene = class HeroSelectScene extends Phaser.Scene {
 
     // ---------- detail panel ----------
     const panelY = 610;
-    this.add.rectangle(W / 2, panelY, 1080, 120, PS.COLORS.cyan, 0.04)
+    this.add.rectangle(W / 2, panelY, 1080, 150, PS.COLORS.cyan, 0.04)
       .setStrokeStyle(2, PS.COLORS.cyan, 0.5);
-    this.detailName = PS.UI.text(this, W / 2, panelY - 38, '', 16, '#ffffff');
-    this.detailIntro1 = this.add.text(W / 2, panelY - 6, '', {
-      fontFamily: PS.UI.FONT, fontSize: '10px', color: '#ccccdd',
+    this.detailName = PS.UI.text(this, W / 2, panelY - 50, '', 22, '#ffffff');
+    this.detailIntro1 = this.add.text(W / 2, panelY - 12, '', {
+      fontFamily: PS.UI.FONT, fontSize: '16px', color: '#ccccdd',
       align: 'center', wordWrap: { width: 1020 },
     }).setOrigin(0.5);
-    this.detailIntro2 = this.add.text(W / 2, panelY + 26, '', {
-      fontFamily: PS.UI.FONT, fontSize: '10px', color: '#ccccdd',
+    this.detailIntro2 = this.add.text(W / 2, panelY + 30, '', {
+      fontFamily: PS.UI.FONT, fontSize: '16px', color: '#ccccdd',
       align: 'center', wordWrap: { width: 1020 },
     }).setOrigin(0.5);
 

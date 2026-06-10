@@ -320,13 +320,34 @@ class Sim {
         });
         break;
       }
-      case 'aura': {
-        const r = this.area(d.r);
-        w.tickAcc += dt;
-        if (w.tickAcc < d.tick) break;
-        w.tickAcc = 0;
-        for (const e of this.enemiesInCircle(this.px, this.py, r))
-          this.dealDamage(e, d.dmg, { slow: { pct: d.slow, dur: 0.6 } });
+      case 'ricochet': {
+        // dým: periodicky vystřelí kouřovou šipku, která lítá v boxu kolem hrdiny,
+        // odráží se od stěn a probodává každého (re-hit po d.rehit s). Port z
+        // weapons.tick_ricochet + GameScene.updateProjectiles/projectileHit.
+        w.acc += dt;
+        if (w.acc >= d.cd * this.cdMult) {
+          w.acc = 0;
+          const t = this.nearestEnemy(this.area(d.box));
+          const dir = t ? Math.atan2(t.y - this.py, t.x - this.px) : this.moveDir;
+          w.dart = { x: this.px, y: this.py, vx: Math.cos(dir) * d.speed, vy: Math.sin(dir) * d.speed, life: d.life, hit: new Map() };
+        }
+        const dart = w.dart;
+        if (dart && dart.life > 0) {
+          dart.life -= dt;
+          dart.x += dart.vx * dt; dart.y += dart.vy * dt;
+          const half = this.area(d.box);
+          const rx = dart.x - this.px, ry = dart.y - this.py;
+          if (rx > half && dart.vx > 0) dart.vx = -dart.vx;
+          else if (rx < -half && dart.vx < 0) dart.vx = -dart.vx;
+          if (ry > half && dart.vy > 0) dart.vy = -dart.vy;
+          else if (ry < -half && dart.vy < 0) dart.vy = -dart.vy;
+          for (const e of this.enemiesInCircle(dart.x, dart.y, d.hitR)) {
+            const last = dart.hit.get(e) || 0;
+            if (this.nowMs - last < d.rehit * 1000) continue;
+            dart.hit.set(e, this.nowMs);
+            this.dealDamage(e, d.dmg, { slow: { pct: d.slow, dur: 0.5 } });
+          }
+        }
         break;
       }
       case 'orbit': {

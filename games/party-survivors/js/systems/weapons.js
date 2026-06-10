@@ -30,10 +30,12 @@ PS.Weapon = class Weapon {
     if (this.id === 'panaky' && pid === 'panak') this.addOrbiter();
   }
 
-  // DMG včetně levelu zbraně
+  // DMG včetně levelu zbraně (útok smí mít vlastní strmější ramp přes def.dmgPerLevel)
   dmg(base) {
+    const perLevel = this.def.dmgPerLevel !== undefined
+      ? this.def.dmgPerLevel : PS.BALANCE.weaponDmgPerLevel;
     return (base !== undefined ? base : this.def.dmg)
-      * (1 + (this.level - 1) * PS.BALANCE.weaponDmgPerLevel);
+      * (1 + (this.level - 1) * perLevel);
   }
 
   cd() { return this.def.cd * this.scene.stats.cdMult; }
@@ -229,35 +231,27 @@ PS.Weapon = class Weapon {
     s.fxBeerSweep(dir, half, range);
   }
 
-  // ============ vypouštění dýmu — trvalá aura (fadadevada) ============
-  // Viditelný šedý oblak: 3 vrstvy textury 'smoke', pomalu rotují a pulzují
-  // → živý kouř kolem hrdiny (dřív skoro neviditelný glow).
-  init_aura() {
-    const s = this.scene;
-    // depth 7 = NAD nepřáteli (5/6), ale pod hrdinou (10) → viditelný oblak,
-    // ve kterém hrdina stojí (dřív byl pod nepřáteli a schoval se v davu)
-    this.puffs = [0, 1, 2, 3].map((i) => ({
-      img: s.add.image(0, 0, 'smoke').setDepth(7).setAlpha(0),
-      rot: Math.random() * Math.PI * 2,
-      spin: (i % 2 ? 1 : -1) * (0.22 + Math.random() * 0.26),
-      sc: 0.78 + i * 0.15,
-    }));
-  }
-  tick_aura(dt) {
+  // ============ vypouštění dýmu — kouřová šipka odrážející se v boxu kolem hrdiny (fadadevada) ============
+  // Periodicky vystřelí šipku, která lítá v neviditelném čtverci vycentrovaném
+  // na hrdinu (box se hýbe s ním), odráží se od jeho stěn a probodává každého,
+  // kým proletí (re-hit po `rehit` s). Bounce + re-hit řeší GameScene.updateProjectiles.
+  tick_ricochet(dt) {
+    this.acc += dt;
+    if (this.acc < this.cd()) return;
+    this.acc = 0;
     const s = this.scene, def = this.def;
-    const r = this.area(def.r);
-    this.puffs.forEach((p, i) => {
-      p.rot += p.spin * dt;
-      p.img.setPosition(s.player.x, s.player.y).setRotation(p.rot)
-        .setScale(r * 2 / 64 * p.sc)
-        .setAlpha(0.32 + 0.07 * Math.sin(s.time.now / 460 + i * 1.7));
-    });
-
-    this.tickAcc += dt;
-    if (this.tickAcc < def.tick - 0.1 * this.perk('hustsi')) return;
-    this.tickAcc = 0;
-    s.enemiesInCircle(s.player.x, s.player.y, r).forEach(e =>
-      s.dealDamage(e, this.dmg(), { slow: { pct: def.slow, dur: 0.6 }, noFlash: true, source: this.id }));
+    const count = 1 + this.perk('sipka');
+    const life = def.life + this.perk('odrazy');
+    const base = s.aimDir(); // první šipka míří na nejbližšího (jinak směr pohledu)
+    for (let i = 0; i < count; i++) {
+      const dir = base + (count > 1 ? (Math.PI * 2 / count) * i : 0);
+      s.fireProjectile({
+        texture: 'proj-sipka', dir, speed: def.speed, life,
+        dmg: this.dmg(), pierce: Infinity, source: this.id,
+        effects: { slow: { pct: def.slow, dur: 0.5 }, noFlash: true },
+        boxBounce: { half: this.area(def.box), rehit: def.rehit },
+      });
+    }
   }
 
   // ============ kopání panáků — orbitující projektily (Zložík) ============

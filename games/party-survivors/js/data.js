@@ -41,32 +41,32 @@ PS.HEROES = [
   {
     id: 'rashid', name: 'Rashid', attackId: 'bliti', color: 0x39ff14,
     intro1: 'Primární útok: blití',
-    intro2: 'Speciální schopnost: Každý XP point mu přidá o 5 % více XP',
-    passive: { type: 'xpGain', value: 0.05 },
+    intro2: 'Speciální schopnost: Udílí o 16 % vyšší poškození.',
+    passive: { type: 'damage', value: 0.16 },
   },
   {
     id: 'poskok', name: 'Poskok', attackId: 'chcani', color: 0xffe600,
     intro1: 'Primární útok: chcaní',
-    intro2: 'Speciální schopnost: Pohybuje se o 12 % rychleji.',
-    passive: { type: 'moveSpeed', value: 0.12 },
+    intro2: 'Speciální schopnost: Pohybuje se o 22 % rychleji.',
+    passive: { type: 'moveSpeed', value: 0.22 },
   },
   {
     id: 'dong', name: 'Don G', attackId: 'tagovani', color: 0xff2bd6,
     intro1: 'Primární útok: tagování',
-    intro2: 'Speciální schopnost: Sbírá XP a powerupy z o 30 % větší vzdálenosti (větší dosah magnetu).',
-    passive: { type: 'magnet', value: 0.30 },
+    intro2: 'Speciální schopnost: Každý XP point mu přidá o 6 % více XP.',
+    passive: { type: 'xpGain', value: 0.06 },
   },
   {
     id: 'kaar', name: 'Kaar', attackId: 'lahvac', color: 0xc77b30,
     intro1: 'Primární útok: házení lahváčem',
-    intro2: 'Speciální schopnost: Udílí o 10 % vyšší poškození.',
-    passive: { type: 'damage', value: 0.10 },
+    intro2: 'Speciální schopnost: Regeneruje navíc 1 HP každou sekundu.',
+    passive: { type: 'regen', value: 1 },
   },
   {
     id: 'fjodor', name: 'Fjodor Ket', attackId: 'vajgly', color: 0xa8c020,
     intro1: 'Primární útok: plivání vaglů',
-    intro2: 'Speciální schopnost: Všechny jeho útoky mají o 8 % kratší cooldown (rychlejší útoky).',
-    passive: { type: 'cooldown', value: 0.08 },
+    intro2: 'Speciální schopnost: Všechny jeho útoky mají o 12 % kratší cooldown (rychlejší útoky).',
+    passive: { type: 'cooldown', value: 0.12 },
   },
   {
     id: 'extreme', name: 'eXtreme', attackId: 'pivo', color: 0xffb400,
@@ -77,20 +77,20 @@ PS.HEROES = [
   {
     id: 'fadadevada', name: 'fadadevada', attackId: 'dym', color: 0x9fb8c8,
     intro1: 'Primární útok: vypouštění dýmu',
-    intro2: 'Speciální schopnost: Regeneruje navíc 1 HP každou sekundu.',
-    passive: { type: 'regen', value: 1 },
+    intro2: 'Speciální schopnost: Má 12 % šanci na kritický zásah za dvojnásobné poškození.',
+    passive: { type: 'crit', value: 0.12, mult: 2 },
   },
   {
     id: 'zlozik', name: 'Zložík', attackId: 'panaky', color: 0xff3b3b,
     intro1: 'Primární útok: kopání panáků',
-    intro2: 'Speciální schopnost: Má 10 % šanci na kritický zásah za dvojnásobné poškození.',
-    passive: { type: 'crit', value: 0.10, mult: 2 },
+    intro2: 'Speciální schopnost: Sbírá XP a powerupy z o 20 % větší vzdálenosti (větší dosah magnetu).',
+    passive: { type: 'magnet', value: 0.20 },
   },
   {
     id: 'sajmic', name: 'Sajmič Uraka', attackId: 'list', color: 0x2ecc40,
     intro1: 'Primární útok: facka listem',
-    intro2: 'Speciální schopnost: Pohlcuje 15 % příchozího poškození (pasivní brnění).',
-    passive: { type: 'armor', value: 0.15 },
+    intro2: 'Speciální schopnost: Pohlcuje 12 % příchozího poškození (pasivní brnění).',
+    passive: { type: 'armor', value: 0.12 },
   },
 ];
 
@@ -144,8 +144,8 @@ PS.ATTACKS = {
   vajgly: {
     name: 'plivání vajglů', archetype: 'bounce', aim: 'nearest',
     anim: 'zelenožlutý vajgl vystřelený od úst hrdiny, odrážející se mezi nepřáteli',
-    desc: 'Rychlopalba: nejkratší cooldown, malý DMG. Vajgl se odráží až mezi 4 nepřáteli a zpomaluje je.',
-    dmg: 8, cd: 0.5, range: 180, bounces: 3, bounceRange: 125,
+    desc: 'Rychlopalba: nejkratší cooldown, malý DMG. Vajgl se odráží až mezi 4 nepřáteli a zpomaluje je. Kratší počáteční dosah — chce nepřátele blíž.',
+    dmg: 8, cd: 0.5, range: 130, bounces: 3, bounceRange: 125,
     slow: { pct: 0.20, dur: 1.2 }, knockback: 0,
   },
   pivo: {
@@ -156,10 +156,11 @@ PS.ATTACKS = {
     puddle: { r: 38, dur: 2.5, slow: 0.20 }, knockback: 3, // velký
   },
   dym: {
-    name: 'vypouštění dýmu', archetype: 'aura', aim: 'self',
-    anim: 'šedý oblak dýmu z vaporizéru trvale obklopující hrdinu',
-    desc: 'Trvalá aura kolem hrdiny: nejnižší DMG, ale bez cooldownu — tiká pořád a zpomaluje.',
-    dmg: 3, tick: 0.5, r: 108, slow: 0.15, cd: 0, knockback: 0,
+    name: 'vypouštění dýmu', archetype: 'ricochet', aim: 'self',
+    anim: 'kouřová šipka z vaporizéru sviští kolem hrdiny a odráží se od neviditelných stěn',
+    desc: 'Kouřová šipka lítá v poli kolem hrdiny, odráží se od neviditelných stěn a probodává každého, kým proletí. Zpomaluje. Útok na dálku, který drží okolí pročištěné.',
+    dmg: 11, cd: 1.8, speed: 340, life: 2.2, box: 130, hitR: 10, rehit: 0.5,
+    slow: 0.15, knockback: 0,
   },
   panaky: {
     name: 'kopání panáků', archetype: 'orbit', aim: 'self',
@@ -170,9 +171,10 @@ PS.ATTACKS = {
   list: {
     name: 'facka listem', archetype: 'slap', aim: 'nearest',
     anim: 'hrdina švihne velkým marihuanovým listem do nejbližšího nepřítele',
-    desc: 'Rychlé facky nejbližšímu (max 2 cíle): obrovský knockback a 25% šance na stun. Krátký dosah.',
-    dmg: 22, cd: 0.78, angle: 50, range: 78, targets: 2,
-    knockback: 4, // obrovský
+    desc: 'Rychlé facky do oblouku (až 4 cíle): KAŽDÝ zásah odráží + 25% šance na stun. Rychle roste do silného útoku na blízko.',
+    dmg: 24, cd: 0.68, angle: 72, range: 96, targets: 4,
+    knockback: 4, // obrovský — odrazí každého zasaženého
+    dmgPerLevel: 0.35, // strmější růst DMG než globál (0,25) → efektivní late-game na blízko
     stun: { chance: 0.25, dur: 0.5 },
   },
 };
@@ -205,26 +207,27 @@ PS.WEAPON_PERKS = {
     { id: 'sirka',  name: 'širší oblouk',    cap: 2, desc: 'Oblouk máchnutí je o 20° širší.' },
   ],
   dym: [
-    { id: 'hustsi', name: 'hustší dým', cap: 2, desc: 'Dým tiká o 0,1 s rychleji.' },
+    { id: 'sipka',  name: 'další šipka',     cap: 2, desc: 'Vypustí o 1 kouřovou šipku víc (na jiný směr).' },
+    { id: 'odrazy', name: 'pružnější šipka', cap: 1, desc: 'Šipka vydrží létat o 1 s déle — víc odrazů a zásahů.' },
   ],
   panaky: [
     { id: 'panak',  name: 'další panák',    cap: 2, desc: 'Přidá 1 orbitující panák.' },
     { id: 'rotace', name: 'rychlejší oběh', cap: 1, desc: 'Panáky obíhají o 20 % rychleji.' },
   ],
   list: [
-    { id: 'cile', name: 'víc plácanců',      cap: 2, desc: 'Facka zasáhne o 1 cíl víc.' },
+    { id: 'cile', name: 'víc plácanců',      cap: 3, desc: 'Facka zasáhne o 1 cíl víc.' },
     { id: 'stun', name: 'jistější plácnutí', cap: 1, desc: 'Šance na omráčení +10 %.' },
   ],
 };
 
 // ---------- Upgrady (list „Upgrady") — pasivky při level-upu ----------
 PS.UPGRADES = [
-  { id: 'odpocinek',  name: 'odpočinek',           desc: 'navýšení max HP o 20 %',                              effect: { type: 'maxHp', value: 0.20 } },
+  { id: 'odpocinek',  name: 'odpočinek',           desc: 'navýšení max HP o 30 %',                              effect: { type: 'maxHp', value: 0.30 } },
   { id: 'naslapnuto', name: 'našlápnuto',          desc: 'Navýšení udíleného poškození o 15 %.',                effect: { type: 'damage', value: 0.15 } },
   { id: 'rozjezd',    name: 'rozjezd',             desc: 'Zkrácení cooldownu všech útoků o 10 %.',              effect: { type: 'cooldown', value: 0.10 } },
-  { id: 'poldove',    name: 'utíkám před poldama', desc: 'Zvýšení rychlosti pohybu hrdiny o 12 %.',             effect: { type: 'moveSpeed', value: 0.12 } },
-  { id: 'pracky',     name: 'delší pracky',        desc: 'Zvětšení zásahové plochy a dosahu všech útoků o 15 %.', effect: { type: 'area', value: 0.15 } },
-  { id: 'nenasyta',   name: 'nenasyta',            desc: 'Zvětšení dosahu sběru XP a powerupů (magnet) o 25 %.', effect: { type: 'magnet', value: 0.25 } },
+  { id: 'poldove',    name: 'utíkám před poldama', desc: 'Zvýšení rychlosti pohybu hrdiny o 16 %.',             effect: { type: 'moveSpeed', value: 0.16 } },
+  { id: 'pracky',     name: 'delší pracky',        desc: 'Zvětšení zásahové plochy a dosahu všech útoků o 25 %.', effect: { type: 'area', value: 0.25 } },
+  { id: 'nenasyta',   name: 'nenasyta',            desc: 'Zvětšení dosahu sběru XP a powerupů (magnet) o 40 %.', effect: { type: 'magnet', value: 0.40 } },
   { id: 'kebab',      name: 'kebab v 5 ráno',      desc: 'Regenerace 2 HP každou sekundu.',                     effect: { type: 'regen', value: 2 } },
 ];
 
@@ -284,6 +287,11 @@ PS.BALANCE = {
   // Boss síly B
   bossHp:  (B) => 90 * B,
   bossDmg: (B) => 8 + 2 * B,
+
+  // Boss schedule — n-tý boss má sílu 5n (zachová cyklus skinů a škálování).
+  // Dřív vázáno na tier (boss à ~7 min od ~2:50); teď samostatný časový plán.
+  bossFirst:    150, // s — první boss (~2:30)
+  bossInterval: 270, // s — rozestup mezi bossy (~4:30)
 
   // Časová osa obtížnosti: nový tier každých ~85 s => pomalejší růst síly
   // nepřátel (HP/dmg), aby hra nezhoustla moc brzy; bossové à ~7 min
