@@ -692,7 +692,8 @@ window.GameScene = class GameScene extends Phaser.Scene {
   // ---------- souboj s hráčem ----------
   touchEnemy(enemy) {
     if (!enemy.active) return;
-    this.hitPlayer(enemy.dmg);
+    // bossové dávají při „dotyku" sníženou damage — jejich síla je v telegrafovaných útocích
+    this.hitPlayer(enemy.isBoss ? enemy.dmg * 0.7 : enemy.dmg);
   }
 
   hitPlayer(dmg) {
@@ -908,7 +909,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
           if (e.atkAcc >= 2.4 && dist < 240) { e.atkAcc = 0; this.bossPushwave(e); }
           break;
         case 'meleeswing': // Churaq — velký telegrafovaný švih pálkou
-          if (e.atkAcc >= 3.2 && dist < 320) { e.atkAcc = 0; this.bossSwing(e); }
+          if (e.atkAcc >= 3.2 && dist < 224) { e.atkAcc = 0; this.bossSwing(e); }
           break;
         case 'summoner': // Haades — vyvolává Pikaře
           if (e.atkAcc >= 3.2) { e.atkAcc = 0; this.bossSummon(e); }
@@ -964,7 +965,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
   // nebezpečná výseč zaměřená na hrdinu), po ~0,36 s teprve švihne. Velký range,
   // STŘEDNÍ damage, velký knockback. Kdo včas vyběhne z výseče/dosahu, uhne.
   bossSwing(boss) {
-    const range = 300, half = Phaser.Math.DegToRad(75);
+    const range = 210, half = Phaser.Math.DegToRad(75);
     const dir = Phaser.Math.Angle.Between(boss.x, boss.y, this.player.x, this.player.y);
     // telegraf: náznak zásahové výseče + lehký otřes (varování)
     this.fxCone(dir, half, range, 0xff9100);
