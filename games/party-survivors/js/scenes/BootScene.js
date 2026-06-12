@@ -783,14 +783,21 @@ window.BootScene = class BootScene extends Phaser.Scene {
       ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.fillRect(2, 2, 1.4, 7); // lesk
     });
 
-    // dým — kouřová šipka (světlá střela s vlečkou kouře a žhavým jádrem)
-    this.canvasTex('proj-sipka', 22, 10, (ctx) => {
-      const t = ctx.createLinearGradient(0, 0, 22, 0);
-      t.addColorStop(0, 'rgba(170,195,210,0)'); t.addColorStop(1, 'rgba(205,220,230,0.75)');
-      ctx.fillStyle = t; this.rr(ctx, 0, 3, 16, 4, 2); ctx.fill(); // vlečka
-      ctx.fillStyle = '#eaf0f4'; // hrot šipky
-      ctx.beginPath(); ctx.moveTo(22, 5); ctx.lineTo(13, 0.5); ctx.lineTo(15.5, 5); ctx.lineTo(13, 9.5); ctx.closePath(); ctx.fill();
-      ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.beginPath(); ctx.arc(15, 5, 1.8, 0, 7); ctx.fill(); // jádro
+    // dým — obláček dýmu (měkké překryté šedavé chuchvalce, žádná střela)
+    this.canvasTex('smoke', 32, 32, (ctx) => {
+      const puff = (x, y, r, a) => {
+        const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+        g.addColorStop(0, `rgba(214,226,234,${a})`);
+        g.addColorStop(0.55, `rgba(176,194,206,${a * 0.6})`);
+        g.addColorStop(1, 'rgba(150,170,184,0)');
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
+      };
+      puff(16, 16, 13, 0.85); // jádro
+      puff(9, 12, 8, 0.7);    // chuchvalce kolem — nepravidelný tvar
+      puff(23, 13, 7, 0.65);
+      puff(13, 23, 7, 0.6);
+      puff(22, 21, 6, 0.55);
     });
 
     // panák — štamprle s chlastem

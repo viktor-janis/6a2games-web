@@ -110,7 +110,7 @@ PS.Spawner = class Spawner {
         Phaser.Math.Clamp(scene.player.x + Math.cos(a) * d, 30, m - 30),
         Phaser.Math.Clamp(scene.player.y + Math.sin(a) * d, 30, m - 30));
     }
-    scene.events.emit('announce', { text: 'VALÍ SE DAV!', color: PS.COLORS.orange });
+    scene.events.emit('announce', { text: 'PŘICHÁZÍ NÁVAL!', color: PS.COLORS.orange });
     scene.cameras.main.shake(220, 0.004);
     PS.Audio.horde();
   }
@@ -139,6 +139,7 @@ PS.Spawner = class Spawner {
 
     enemy.isBoss = false;
     enemy.strength = strength;
+    enemy.level = info.level; // úroveň typu (lv2+ odolává odhozu — viz GameScene.knockback)
     enemy.hp = PS.BALANCE.enemyHp(strength);
     enemy.maxHp = enemy.hp;
     enemy.dmg = PS.BALANCE.enemyDmg(strength);
@@ -149,7 +150,7 @@ PS.Spawner = class Spawner {
     enemy.slowUntil = 0; enemy.slowPct = 0;
     enemy.dotUntil = 0; enemy.dotDps = 0;
     enemy.kbUntil = 0; enemy.stunUntil = 0;
-    enemy.lastOrbHit = 0;
+    enemy.lastOrbHit = -1e9; // hluboká minulost (gameTime startuje na 0)
     enemy.ringWall = false;
     return enemy;
   }
@@ -211,7 +212,7 @@ PS.Spawner = class Spawner {
     boss.hp = PS.BALANCE.bossHp(strength);
     boss.maxHp = boss.hp;
     boss.dmg = PS.BALANCE.bossDmg(strength);
-    boss.speed = 29; // ×0,7 s tempem hry
+    boss.speed = 42 + 3 * (level - 1); // rychlejší než dřív (29), pořád « hrdina (126)
     boss.xp = strength; // killEnemy bossům rozsype víc gemů
 
     boss.slowUntil = 0; boss.slowPct = 0;

@@ -105,6 +105,11 @@ class Sim {
     // statistika cooldownů (globální mult = 1: bez pasivek)
     this.cdMult = 1;
     this.areaMult = 1;
+
+    // odolnost vůči odhozu dle ÚROVNĚ nepřítele (port GameScene.knockback):
+    // band 12 = lv3 → ~48 % účinku; band 3 = lv1 → plný účinek
+    const lvl = Math.floor((cfg.band - 1) / 5) + 1;
+    this.kbResist = 1 / (1 + 0.55 * (lvl - 1));
   }
 
   // ---------- prostorové dotazy (zrcadlí GameScene) ----------
@@ -189,8 +194,8 @@ class Sim {
     }
   }
   knockback(e, strength) {
-    const vel = 84 + strength * 56;
-    const dur = 90 + strength * 40;
+    const vel = (84 + strength * 56) * this.kbResist;
+    const dur = (90 + strength * 40) * this.kbResist;
     const a = Math.atan2(e.y - this.py, e.x - this.px);
     e.kbvx = Math.cos(a) * vel; e.kbvy = Math.sin(a) * vel;
     e.kbUntil = this.nowMs + dur;
@@ -317,15 +322,16 @@ class Sim {
         break;
       }
       case 'ricochet': {
-        // dým: periodicky vystřelí kouřovou šipku, která lítá v boxu kolem hrdiny,
-        // odráží se od stěn a probodává každého (re-hit po d.rehit s). Port z
-        // weapons.tick_ricochet + GameScene.updateProjectiles/projectileHit.
+        // dým: periodicky vypustí obláček dýmu, který se převaluje v boxu kolem
+        // hrdiny, odráží se od stěn, dusí každého (re-hit po d.rehit s) a nechává
+        // zpomalující clonu (trail). Port z weapons.tick_ricochet +
+        // GameScene.updateProjectiles/projectileHit.
         w.acc += dt;
         if (w.acc >= d.cd * this.cdMult) {
           w.acc = 0;
           const t = this.nearestEnemy(this.area(d.box));
           const dir = t ? Math.atan2(t.y - this.py, t.x - this.px) : this.moveDir;
-          w.dart = { x: this.px, y: this.py, vx: Math.cos(dir) * d.speed, vy: Math.sin(dir) * d.speed, life: d.life, hit: new Map() };
+          w.dart = { x: this.px, y: this.py, vx: Math.cos(dir) * d.speed, vy: Math.sin(dir) * d.speed, life: d.life, hit: new Map(), trailAcc: 0 };
         }
         const dart = w.dart;
         if (dart && dart.life > 0) {
@@ -337,6 +343,13 @@ class Sim {
           else if (rx < -half && dart.vx < 0) dart.vx = -dart.vx;
           if (ry > half && dart.vy > 0) dart.vy = -dart.vy;
           else if (ry < -half && dart.vy < 0) dart.vy = -dart.vy;
+          if (d.trail) {
+            dart.trailAcc += dt;
+            if (dart.trailAcc >= d.trail.every) {
+              dart.trailAcc = 0;
+              this.addZone({ x: dart.x, y: dart.y, r: d.trail.r, dur: d.trail.dur, slowPct: d.trail.slow });
+            }
+          }
           for (const e of this.enemiesInCircle(dart.x, dart.y, d.hitR)) {
             const last = dart.hit.get(e) || 0;
             if (this.nowMs - last < d.rehit * 1000) continue;

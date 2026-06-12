@@ -78,9 +78,9 @@ window.HUDScene = class HUDScene extends Phaser.Scene {
     this.selectPause = this.makeHoverGroup(this.pauseItems);
 
     // potvrzení vzdání hry (zobrazí se MÍSTO položek pauzy)
-    this.confirmTitle = PS.UI.title(this, W / 2, 0, 'OPRAVDU VZDÁVÁŠ HRU?', 24, PS.COLORS.red);
+    this.confirmTitle = PS.UI.title(this, W / 2, 0, 'OPRAVDU VZDÁVÁŠ TUHLE RYCHTU?', 24, PS.COLORS.red);
     this.cYes = PS.UI.button(this, W / 2, 0, BW, BH, 'ANO, VZDÁVÁM', { color: PS.COLORS.red });
-    this.cNo = PS.UI.button(this, W / 2, 0, BW, BH, 'NE, ZPĚT DO PAUZY');
+    this.cNo = PS.UI.button(this, W / 2, 0, BW, BH, 'NE, ZPĚT');
     this.cYes.onClick = () => this.concede();
     this.cNo.onClick = () => this.hideConcedeConfirm();
     this.confirmItems = [this.cYes, this.cNo];
@@ -280,8 +280,9 @@ window.HUDScene = class HUDScene extends Phaser.Scene {
       this.weaponsText.setText(g.weapons.map(w => `${w.def.name.toUpperCase()} ${w.level}`).join('\n'));
     }
 
-    // aktivní buffy z klíčků
-    const now = g.time.now;
+    // aktivní buffy z klíčků — odpočty proti herním hodinám (g.gameTime),
+    // takže během pauzy/level-upu správně stojí
+    const now = g.gameTime;
     const buffs = [];
     if (now < g.buffDmgUntil) buffs.push(`DMG+30% ${Math.ceil((g.buffDmgUntil - now) / 1000)}s`);
     if (now < g.buffSpeedUntil) buffs.push(`SPEED+20% ${Math.ceil((g.buffSpeedUntil - now) / 1000)}s`);

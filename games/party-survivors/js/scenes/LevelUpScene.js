@@ -14,7 +14,10 @@ window.LevelUpScene = class LevelUpScene extends Phaser.Scene {
     PS.UI.text(this, W / 2, 165, 'VYBER SI VYLEPŠENÍ', 13, '#ccccdd');
 
     this.cardObjs = [];
-    this.showChoices(this.gameScene.buildChoices());
+    const choices = this.gameScene.buildChoices();
+    // pojistka: bez voleb (vše vymaxováno) se overlay nesmí otevřít naprázdno
+    if (choices.length === 0) { this.closeOverlay(); return; }
+    this.showChoices(choices);
 
     this.input.keyboard.on('keydown-LEFT', () => this.select((this.selectedIndex + 2) % this.choices.length));
     this.input.keyboard.on('keydown-RIGHT', () => this.select((this.selectedIndex + 1) % this.choices.length));
@@ -122,16 +125,25 @@ window.LevelUpScene = class LevelUpScene extends Phaser.Scene {
     PS.Audio.select();
 
     if (g.pendingLevelUps > 0) {
-      // další nastřádaný level — rovnou další výběr
+      // další nastřádaný level — rovnou další výběr; když už ale není z čeho
+      // vybírat (touto volbou se vymaxovalo vše), overlay zavřít, nezaseknout
+      const next = g.buildChoices();
+      if (next.length === 0) { g.pendingLevelUps = 0; this.closeOverlay(); return; }
       this.titleText.setText(`LEVEL ${g.level}!`);
-      this.showChoices(g.buildChoices());
+      this.showChoices(next);
     } else {
-      g.levelUpOpen = false;
-      this.scene.stop();
-      this.scene.resume('Game');
-      g.cameras.main.flash(150, 80, 255, 120);
-      g.burstConfetti(g.player.x, g.player.y);
+      this.closeOverlay();
     }
+  }
+
+  // zavření overlaye + návrat do hry (sdílí normální cesta i pojistky)
+  closeOverlay() {
+    const g = this.gameScene;
+    g.levelUpOpen = false;
+    this.scene.stop();
+    this.scene.resume('Game');
+    g.cameras.main.flash(150, 80, 255, 120);
+    g.burstConfetti(g.player.x, g.player.y);
   }
 };
 PS.scenes.push(window.LevelUpScene);

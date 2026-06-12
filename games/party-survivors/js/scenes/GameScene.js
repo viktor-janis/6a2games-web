@@ -65,6 +65,8 @@ window.GameScene = class GameScene extends Phaser.Scene {
       critChance: p.type === 'crit' ? p.value : 0,
       critMult: p.type === 'crit' ? p.mult : 2,
       armorMult: p.type === 'armor' ? 1 - p.value : 1,
+      bossDmgMult: 1,     // upgrade „beef s headlinerem" — bonus dmg bossům
+      killHealChance: 0,  // upgrade „dojídá rozlitý" — šance na +1 HP za kill
     };
     this.hp = this.stats.maxHp;
     this.level = 1;
@@ -73,6 +75,13 @@ window.GameScene = class GameScene extends Phaser.Scene {
     this.kills = 0;
     this.weaponStats = {}; // per-zbraň { damage, kills } → statistiky na obrazovce smrti
     this.elapsed = 0;
+    // HERNÍ HODINY (ms) — VŠECHNY gameplay timestampy (buffy, slow/DoT/stun,
+    // zóny…) se měří proti this.gameTime, NE this.time.now. Phaser Clock totiž
+    // při pauze scény (level-up, pauza, otočení mobilu) zamrzne a po resume
+    // SKOČÍ dopředu o dobu pauzy → buffy sebrané před pauzou by tiše vypršely
+    // (bug „klíče nefungují"). gameTime se akumuluje z delta jen když hra
+    // reálně běží; na rozdíl od `elapsed` (skóre) běží i během boss fightu.
+    this.gameTime = 0;
     this.invulnUntil = 0;
     this.regenAcc = 0;
     this.dotAcc = 0;
@@ -163,12 +172,13 @@ window.GameScene = class GameScene extends Phaser.Scene {
   update(_time, delta) {
     if (this.over) return;
     const dt = delta / 1000;
+    this.gameTime += delta; // herní hodiny — viz create()
     // skóre (čas přežití) se během boss fightu zastaví — HUD ukazuje
     // „PROBÍHÁ BOSS FIGHT"; po poražení bosse zase naskočí
     if (!this.bossFight) this.elapsed += dt;
 
     this.movePlayer();
-    if (this.bossFight) this.clampToArena(); // ring nelze prorazit
+    if (this.bossFight) { this.updateArena(); this.clampToArena(); } // ring se stahuje a nelze prorazit
     this.floor.setTilePosition(this.cameras.main.scrollX, this.cameras.main.scrollY);
     // během souboje s bossem stojí spawn vln, powerupů i časomíra tierů
     if (!this.bossFight) this.spawner.update(dt);
@@ -185,8 +195,8 @@ window.GameScene = class GameScene extends Phaser.Scene {
     this.updateRegen(dt);
 
     // vizuál nesmrtelnosti — zlaté pulzování
-    if (this.time.now < this.immortalUntil) {
-      this.player.setAlpha(0.65 + 0.35 * Math.sin(this.time.now / 60));
+    if (this.gameTime < this.immortalUntil) {
+      this.player.setAlpha(0.65 + 0.35 * Math.sin(this.gameTime / 60));
       this.player.setTint(0xffe600);
     } else if (this.player.alpha !== 1) {
       this.player.setAlpha(1);
@@ -196,7 +206,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
 
   // ---------- pohyb ----------
   movePlayer() {
-    const now = this.time.now;
+    const now = this.gameTime;
     if (now < this.playerStunUntil) { this.player.setVelocity(0, 0); return; } // hypnóza
     if (now < this.playerKbUntil) return; // letí od odhození
 
@@ -238,7 +248,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
 
   moveEnemies() {
     const px = this.player.x, py = this.player.y;
-    const now = this.time.now;
+    const now = this.gameTime;
     const frozen = now < this.freezeUntil; // klíč-freeze
     this.enemies.children.iterate(e => {
       if (!e || !e.active) return;
@@ -292,7 +302,8 @@ window.GameScene = class GameScene extends Phaser.Scene {
     if (!enemy || !enemy.active) return;
     if (enemy.ringWall) return; // zeď ringu je během souboje s bossem nezranitelná
     let dmg = base * this.stats.dmgMult;
-    if (this.time.now < this.buffDmgUntil) dmg *= 1.3; // klíč-damage
+    if (enemy.isBoss) dmg *= this.stats.bossDmgMult; // upgrade „beef s headlinerem"
+    if (this.gameTime < this.buffDmgUntil) dmg *= 1.3; // klíč-damage
     let crit = false;
     if (!opts.noCrit && Math.random() < this.stats.critChance) {
       dmg *= this.stats.critMult;
@@ -308,12 +319,12 @@ window.GameScene = class GameScene extends Phaser.Scene {
     if (opts.slow) this.applySlow(enemy, opts.slow.pct, opts.slow.dur);
     if (opts.dot) {
       enemy.dotDps = opts.dot.dps;
-      enemy.dotUntil = this.time.now + opts.dot.dur * 1000;
+      enemy.dotUntil = this.gameTime + opts.dot.dur * 1000;
       enemy.dotSource = opts.source; // ať DoT tiky kreditují správnou zbraň
     }
     if (opts.knockback) this.knockback(enemy, opts.knockback);
     if (opts.stun && Math.random() < opts.stun.chance) {
-      enemy.stunUntil = this.time.now + opts.stun.dur * 1000;
+      enemy.stunUntil = this.gameTime + opts.stun.dur * 1000;
     }
     // statistiky zbraní — zapiš odvedený damage (bez overkillu) a případný kill
     const killed = enemy.hp <= 0;
@@ -332,7 +343,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
   }
 
   applySlow(enemy, pct, dur) {
-    const now = this.time.now;
+    const now = this.gameTime;
     // zpomalení se nekumuluje — platí nejsilnější
     if ((enemy.slowUntil || 0) < now || pct >= (enemy.slowPct || 0)) {
       enemy.slowPct = pct;
@@ -340,14 +351,17 @@ window.GameScene = class GameScene extends Phaser.Scene {
     }
   }
 
-  // síla 1 (malý) – 4 (obrovský); bossové odolávají (30 % účinku)
+  // síla 1 (malý) – 4 (obrovský). Odolnost vůči odhozu roste s ÚROVNÍ nepřítele
+  // (lv1 = 100 %, lv2 ≈ 65 %, lv3 ≈ 48 %, lv4 ≈ 38 %) — od ~10. minuty se dav
+  // protlačí přes JAKÝKOLIV odhozový perimetr (anti-AFK pojistka, žádná builda
+  // nesmí umožnit stát na místě donekonečna). Bossové odolávají nejvíc (25 %).
   knockback(enemy, strength) {
-    const resist = enemy.isBoss ? 0.3 : 1;
+    const resist = enemy.isBoss ? 0.25 : 1 / (1 + 0.55 * ((enemy.level || 1) - 1));
     const vel = (84 + strength * 56) * resist;  // 140 / 196 / 252 / 308 (×0,7)
     const dur = (90 + strength * 40) * resist;  // 130 / 170 / 210 / 250 ms
     const a = Phaser.Math.Angle.Between(this.player.x, this.player.y, enemy.x, enemy.y);
     enemy.setVelocity(Math.cos(a) * vel, Math.sin(a) * vel);
-    enemy.kbUntil = this.time.now + dur;
+    enemy.kbUntil = this.gameTime + dur;
   }
 
   updateDots(dt) {
@@ -355,7 +369,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
     if (this.dotAcc < 0.25) return;
     const step = this.dotAcc;
     this.dotAcc = 0;
-    const now = this.time.now;
+    const now = this.gameTime;
     this.enemies.children.iterate(e => {
       if (!e || !e.active || (e.dotUntil || 0) < now) return;
       this.dealDamage(e, e.dotDps * step, { noCrit: true, noFlash: true, source: e.dotSource });
@@ -366,7 +380,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
   addZone(cfg) {
     const z = {
       x: cfg.x, y: cfg.y, r: cfg.r,
-      until: this.time.now + cfg.dur * 1000,
+      until: this.gameTime + cfg.dur * 1000,
       tickDmg: cfg.tickDmg || 0,
       tick: cfg.tick || 0.4,
       slowPct: cfg.slowPct || 0,
@@ -391,7 +405,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
   removeZone(zone) { zone.until = 0; }
 
   updateZones(dt) {
-    const now = this.time.now;
+    const now = this.gameTime;
     for (let i = this.zones.length - 1; i >= 0; i--) {
       const z = this.zones[i];
       if (now > z.until) {
@@ -500,6 +514,9 @@ window.GameScene = class GameScene extends Phaser.Scene {
     p.bounceRange = cfg.bounceRange || 0;
     p.boxBounce = cfg.boxBounce || null; // odrazy od stěn boxu kolem hrdiny (dým)
     p.rehit = cfg.boxBounce ? cfg.boxBounce.rehit : 0; // re-hit cooldown pro pierce
+    p.trail = cfg.trail || null; // dým: zpomalující clona za obláčkem
+    p.trailAcc = 0;
+    p.setAlpha(1); // pooling: dým pulzuje alfu → recyklovaný projektil resetovat
     p.hitSet = new Set();
     p.hitTimes = p.rehit ? new Map() : null; // kdy naposled zasáhl koho (re-hit)
     if (cfg.target) {
@@ -532,7 +549,21 @@ window.GameScene = class GameScene extends Phaser.Scene {
         else if (rx < -half && vx < 0) { vx = -vx; hit = true; }
         if (ry > half && vy > 0) { vy = -vy; hit = true; }
         else if (ry < -half && vy < 0) { vy = -vy; hit = true; }
-        if (hit) { p.setVelocity(vx, vy); p.setRotation(Math.atan2(vy, vx)); }
+        if (hit) p.setVelocity(vx, vy);
+        // valivý vizuál obláčku — pomalá rotace + jemné pulzování
+        p.rotation += 0.9 * dt;
+        p.setAlpha(0.7 + 0.25 * Math.sin(this.gameTime / 170 + p.x));
+        // zpomalující clona — obláček za sebou nechává stopy dýmu
+        if (p.trail) {
+          p.trailAcc += dt;
+          if (p.trailAcc >= p.trail.every) {
+            p.trailAcc = 0;
+            this.addZone({
+              x: p.x, y: p.y, r: p.trail.r, dur: p.trail.dur,
+              slowPct: p.trail.slow, tint: 0x9fb8c8, alpha: 0.22,
+            });
+          }
+        }
       }
     });
   }
@@ -544,7 +575,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
     // dým: probodává donekonečna, stejného nepřítele může zasáhnout opakovaně
     // po `rehit` s (žádné odrazy mezi nepřáteli — jen od stěn boxu)
     if (proj.rehit) {
-      const now = this.time.now;
+      const now = this.gameTime;
       const last = proj.hitTimes.get(enemy) || 0;
       if (now - last < proj.rehit * 1000) return;
       proj.hitTimes.set(enemy, now);
@@ -666,7 +697,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
 
   hitPlayer(dmg) {
     if (this.over) return;
-    const now = this.time.now;
+    const now = this.gameTime;
     if (now < this.immortalUntil) return; // klíč-nesmrtelnost
     if (now < this.invulnUntil) return;
     PS.Audio.playerHit();
@@ -700,6 +731,10 @@ window.GameScene = class GameScene extends Phaser.Scene {
       if (this.bossFight && this.bossFight.boss === enemy) this.endBossFight();
     } else {
       this.dropGem(enemy.x, enemy.y, enemy.xp);
+      // upgrade „dojídá rozlitý" — šance na +1 HP za kill (bossové ne)
+      if (this.stats.killHealChance && Math.random() < this.stats.killHealChance) {
+        this.hp = Math.min(this.stats.maxHp, this.hp + 1);
+      }
       PS.Audio.kill();
     }
     enemy.disableBody(true, true);
@@ -745,8 +780,9 @@ window.GameScene = class GameScene extends Phaser.Scene {
   startBossFight(cx, cy) {
     const r = PS.BALANCE.arenaRadius;
     // boss se přidá až po 2 s (spawner.placeBoss) — ring se nejdřív v klidu uzavře
-    this.bossFight = { boss: null, cx, cy, r };
-    this.ringFormUntil = this.time.now + 11000; // sprint: ring se uzavře rychle (větší poloměr = delší cesty)
+    // t0 = start fightu: od něj se počítá postupné STAHOVÁNÍ arény (updateArena)
+    this.bossFight = { boss: null, cx, cy, r, t0: this.gameTime };
+    this.ringFormUntil = this.gameTime + 11000; // sprint: ring se uzavře rychle (větší poloměr = delší cesty)
 
     // neonový okraj arény
     this.arenaFx = this.add.graphics().setDepth(2);
@@ -803,6 +839,30 @@ window.GameScene = class GameScene extends Phaser.Scene {
     e.slowUntil = 0; e.dotUntil = 0; e.kbUntil = 0; e.stunUntil = 0;
   }
 
+  // Aréna se během souboje POMALU stahuje (anti heal-pauza): po
+  // arenaShrinkDelay s se poloměr lineárně zmenšuje z arenaRadius na
+  // arenaMinRadius během arenaShrinkDur s, pak drží. Zeď ringu se stahuje
+  // s ní (přepočet slotů z ringAngle), okraj arény se překresluje.
+  updateArena() {
+    const bf = this.bossFight, B = PS.BALANCE;
+    const t = (this.gameTime - bf.t0) / 1000 - B.arenaShrinkDelay;
+    if (t <= 0) return;
+    const k = Phaser.Math.Clamp(t / B.arenaShrinkDur, 0, 1);
+    const r = B.arenaRadius - (B.arenaRadius - B.arenaMinRadius) * k;
+    if (bf.r - r < 0.5) return; // beze změny (po doběhnutí stahování)
+    bf.r = r;
+    this.enemies.children.iterate(e => {
+      if (!e || !e.active || !e.ringWall) return;
+      e.ringX = bf.cx + Math.cos(e.ringAngle) * r;
+      e.ringY = bf.cy + Math.sin(e.ringAngle) * r;
+    });
+    if (this.arenaFx) {
+      this.arenaFx.clear();
+      this.arenaFx.lineStyle(5, PS.COLORS.pink, 0.3);
+      this.arenaFx.strokeCircle(bf.cx, bf.cy, r);
+    }
+  }
+
   // hrdina nemůže ring prorazit: vrátí se kousek DOVNITŘ hranice (ne přesně
   // na ni — jinak floating-point drží hráče "venku" a klamp mu každý frame
   // nuluje rychlost = trvalé zamrznutí, viz bug s vlnou Rohonyho) a z rychlosti
@@ -832,28 +892,29 @@ window.GameScene = class GameScene extends Phaser.Scene {
 
   // ---------- bossové ----------
   updateBosses(dt) {
-    if (this.time.now < this.freezeUntil) return; // zmražení bossové neútočí
+    if (this.gameTime < this.freezeUntil) return; // zmražení bossové neútočí
     const px = this.player.x, py = this.player.y;
     this.enemies.children.iterate(e => {
       if (!e || !e.active || !e.isBoss) return;
       e.atkAcc += dt;
       const dist = Phaser.Math.Distance.Between(e.x, e.y, px, py);
 
+      // agresivnější tempo útoků (testeři: bossové byli spíš heal pauza)
       switch (e.mechanic) {
         case 'projectiles': // Kato — plive zuby
-          if (e.atkAcc >= 2.5 && dist < 420) { e.atkAcc = 0; this.bossSpitTeeth(e); }
+          if (e.atkAcc >= 1.9 && dist < 420) { e.atkAcc = 0; this.bossSpitTeeth(e); }
           break;
         case 'pushwave': // Rohony — zvuková vlna (bez damage)
-          if (e.atkAcc >= 3.0 && dist < 210) { e.atkAcc = 0; this.bossPushwave(e); }
+          if (e.atkAcc >= 2.4 && dist < 240) { e.atkAcc = 0; this.bossPushwave(e); }
           break;
         case 'meleeswing': // Churaq — velký telegrafovaný švih pálkou
-          if (e.atkAcc >= 4.0 && dist < 320) { e.atkAcc = 0; this.bossSwing(e); }
+          if (e.atkAcc >= 3.2 && dist < 320) { e.atkAcc = 0; this.bossSwing(e); }
           break;
         case 'summoner': // Haades — vyvolává Pikaře
-          if (e.atkAcc >= 4.0) { e.atkAcc = 0; this.bossSummon(e); }
+          if (e.atkAcc >= 3.2) { e.atkAcc = 0; this.bossSummon(e); }
           break;
         case 'hypnosis': // Schýza — zmrazí hráče
-          if (e.atkAcc >= 5.0 && dist < 295) { e.atkAcc = 0; this.bossHypnosis(e); }
+          if (e.atkAcc >= 4.2 && dist < 330) { e.atkAcc = 0; this.bossHypnosis(e); }
           break;
       }
     });
@@ -861,7 +922,11 @@ window.GameScene = class GameScene extends Phaser.Scene {
 
   bossSpitTeeth(boss) {
     const base = Phaser.Math.Angle.Between(boss.x, boss.y, this.player.x, this.player.y);
-    [-0.25, 0, 0.25].forEach(off => {
+    // vějíř zubů — širší s každým levelem bosse (3 / 4 / 5…)
+    const n = 3 + (boss.bossLevel - 1);
+    const offs = [];
+    for (let i = 0; i < n; i++) offs.push((i - (n - 1) / 2) * 0.25);
+    offs.forEach(off => {
       const p = this.enemyProjectiles.get(boss.x, boss.y, 'tooth');
       if (!p) return;
       p.setActive(true).setVisible(true);
@@ -871,7 +936,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
       p.dmg = boss.dmg * 0.7;
       p.life = 3;
       const a = base + off;
-      p.setVelocity(Math.cos(a) * 170, Math.sin(a) * 170);
+      p.setVelocity(Math.cos(a) * 195, Math.sin(a) * 195);
       p.setRotation(a);
     });
   }
@@ -888,10 +953,10 @@ window.GameScene = class GameScene extends Phaser.Scene {
     });
 
     const dist = Phaser.Math.Distance.Between(boss.x, boss.y, this.player.x, this.player.y);
-    if (dist < 210) {
+    if (dist < 240) {
       const a = Phaser.Math.Angle.Between(boss.x, boss.y, this.player.x, this.player.y);
       this.player.setVelocity(Math.cos(a) * 450, Math.sin(a) * 450);
-      this.playerKbUntil = this.time.now + 280; // odhození, ale žádný damage
+      this.playerKbUntil = this.gameTime + 280; // odhození, ale žádný damage
     }
   }
 
@@ -913,9 +978,9 @@ window.GameScene = class GameScene extends Phaser.Scene {
       if (d < range) {
         const a = Math.atan2(dy, dx);
         if (Math.abs(Phaser.Math.Angle.Wrap(a - dir)) <= half) {
-          this.hitPlayer(boss.dmg * 0.6); // střední damage
+          this.hitPlayer(boss.dmg * 0.7); // střední damage
           this.player.setVelocity(Math.cos(a) * 420, Math.sin(a) * 420); // velký odhoz
-          this.playerKbUntil = this.time.now + 300;
+          this.playerKbUntil = this.gameTime + 300;
         }
       }
     });
@@ -960,10 +1025,10 @@ window.GameScene = class GameScene extends Phaser.Scene {
   }
 
   bossHypnosis(boss) {
-    this.playerStunUntil = this.time.now + 500;
-    this.hitPlayer(boss.dmg * 0.4); // menší damage
+    this.playerStunUntil = this.gameTime + 600;
+    this.hitPlayer(boss.dmg * 0.55); // menší damage (ale citelný)
     this.player.setTintFill(0xb44cff);
-    this.time.delayedCall(500, () => { if (this.player.active) this.player.clearTint(); });
+    this.time.delayedCall(600, () => { if (this.player.active) this.player.clearTint(); });
     this.cameras.main.flash(300, 120, 40, 200);
   }
 
@@ -1014,7 +1079,12 @@ window.GameScene = class GameScene extends Phaser.Scene {
       this.xpNext = PS.BALANCE.xpForLevel(this.level);
       this.pendingLevelUps++;
     }
-    if (this.pendingLevelUps > 0 && !this.levelUpOpen) this.openLevelUp();
+    if (this.pendingLevelUps > 0 && !this.levelUpOpen) {
+      // vše vymaxováno → není z čeho vybírat; NEOTVÍRAT overlay (zasekl by hru
+      // navždy — prázdná obrazovka bez karet nejde zavřít)
+      if (this.buildChoices().length === 0) { this.pendingLevelUps = 0; return; }
+      this.openLevelUp();
+    }
   }
 
   // ---------- powerupy (klíčky) ----------
@@ -1079,7 +1149,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
   }
 
   applyPowerup(def) {
-    const now = this.time.now;
+    const now = this.gameTime;
     switch (def.effect.type) {
       case 'heal':
         this.hp = Math.min(this.stats.maxHp, this.hp + this.stats.maxHp * def.effect.value);
@@ -1289,6 +1359,11 @@ window.GameScene = class GameScene extends Phaser.Scene {
       case 'area': s.areaMult *= 1 + eff.value; break;
       case 'magnet': s.magnet *= 1 + eff.value; break;
       case 'regen': s.regen += eff.value; break;
+      case 'armor': s.armorMult *= 1 - eff.value; break;      // ztvrdlá mikina (skládá se s pasivkou hrdiny)
+      case 'bossDmg': s.bossDmgMult += eff.value; break;      // beef s headlinerem
+      case 'crit': s.critChance += eff.value; break;          // panáková ruleta
+      case 'xpGain': s.xpMult += eff.value; break;            // šmelina u baru
+      case 'killHeal': s.killHealChance += eff.value; break;  // dojídá rozlitý
     }
   }
 

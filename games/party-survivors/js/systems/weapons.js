@@ -102,7 +102,7 @@ PS.Weapon = class Weapon {
     this.acc += dt;
     if (this.acc < this.cd()) return;
     this.acc = 0;
-    const s = this.scene, def = this.def, now = s.time.now;
+    const s = this.scene, def = this.def, now = s.gameTime; // zóny žijí v herních hodinách
 
     this.tags = this.tags.filter(z => z.until > now);
     const maxZones = def.maxZones + this.perk('tag');
@@ -212,7 +212,7 @@ PS.Weapon = class Weapon {
   doSweep(dir) {
     const s = this.scene, def = this.def;
     const range = this.area(def.range);
-    const half = Phaser.Math.DegToRad((def.angle + 20 * this.perk('sirka')) / 2);
+    const half = Phaser.Math.DegToRad((def.angle + 15 * this.perk('sirka')) / 2);
     s.enemiesInCone(dir, half, range).forEach(e =>
       s.dealDamage(e, this.dmg(), { knockback: def.knockback, source: this.id }));
 
@@ -226,10 +226,11 @@ PS.Weapon = class Weapon {
     s.fxBeerSweep(dir, half, range);
   }
 
-  // ============ vypouštění dýmu — kouřová šipka odrážející se v boxu kolem hrdiny (fadadevada) ============
-  // Periodicky vystřelí šipku, která lítá v neviditelném čtverci vycentrovaném
-  // na hrdinu (box se hýbe s ním), odráží se od jeho stěn a probodává každého,
-  // kým proletí (re-hit po `rehit` s). Bounce + re-hit řeší GameScene.updateProjectiles.
+  // ============ vypouštění dýmu — obláček dýmu valící se v boxu kolem hrdiny (fadadevada) ============
+  // Periodicky vypustí obláček, který se převaluje v neviditelném čtverci
+  // vycentrovaném na hrdinu (box se hýbe s ním), odráží se od jeho stěn a dusí
+  // každého, kým prostoupí (re-hit po `rehit` s). Za sebou nechává zpomalující
+  // clonu. Bounce + re-hit + stopu řeší GameScene.updateProjectiles.
   tick_ricochet(dt) {
     this.acc += dt;
     if (this.acc < this.cd()) return;
@@ -237,14 +238,15 @@ PS.Weapon = class Weapon {
     const s = this.scene, def = this.def;
     const count = 1 + this.perk('sipka');
     const life = def.life + this.perk('odrazy');
-    const base = s.aimDir(); // první šipka míří na nejbližšího (jinak směr pohledu)
+    const base = s.aimDir(); // první obláček míří na nejbližšího (jinak směr pohledu)
     for (let i = 0; i < count; i++) {
       const dir = base + (count > 1 ? (Math.PI * 2 / count) * i : 0);
       s.fireProjectile({
-        texture: 'proj-sipka', dir, speed: def.speed, life,
+        texture: 'smoke', dir, speed: def.speed, life,
         dmg: this.dmg(), pierce: Infinity, source: this.id,
         effects: { slow: { pct: def.slow, dur: 0.5 }, noFlash: true },
         boxBounce: { half: this.area(def.box), rehit: def.rehit },
+        trail: def.trail, // zpomalující clona za obláčkem
       });
     }
   }
@@ -260,7 +262,7 @@ PS.Weapon = class Weapon {
     this.orbiters.push(this.scene.add.image(0, 0, 'panak').setDepth(9));
   }
   tick_orbit(dt) {
-    const s = this.scene, def = this.def, now = s.time.now;
+    const s = this.scene, def = this.def, now = s.gameTime; // re-hit v herních hodinách
     // rychlejší cooldowny = rychlejší oběh; perk „rychlejší oběh" −20 % periody
     const period = def.period * (1 - 0.2 * this.perk('rotace'));
     this.angle += dt * Math.PI * 2 / (period * s.stats.cdMult);
