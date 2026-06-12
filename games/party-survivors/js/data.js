@@ -111,9 +111,11 @@ PS.HEROES = [
 PS.ATTACKS = {
   bliti: {
     name: 'blití', archetype: 'cone', aim: 'facing',
-    anim: 'zelený proud směrem od hlavy hrdiny',
-    desc: 'Kužel ve směru pohledu hrdiny. Nižší DMG, ale zasažené otravuje — dostávají poškození v čase.',
-    dmg: 7, tick: 0.35, angle: 62, range: 95, cd: 2.4, duration: 1.4,
+    anim: 'nepřetržitý zelený proud chrlený směrem chůze hrdiny',
+    desc: 'Nepřetržitý proud ve směru chůze — chrlí bez přestávky. Slabší jednotlivý zásah, ale zasažené navíc otravuje (poškození v čase). Rychlopalba na blízko.',
+    // TRVALÝ proud (žádný cd/duration): tiká každých `tick` s. Laděno na ~medián
+    // přes tools/balance-sim.js (plynulý proud má vyšší uptime → per-tik DMG nízký).
+    dmg: 6, tick: 0.32, angle: 62, range: 95,
     dot: { dps: 4, dur: 2.5 }, knockback: 0, pierce: Infinity,
   },
   chcani: {
@@ -185,7 +187,7 @@ PS.ATTACKS = {
 // Efekty čte PS.Weapon přes this.perk(id) — viz weapons.js.
 PS.WEAPON_PERKS = {
   bliti: [
-    { id: 'davka', name: 'větší dávka',  cap: 2, desc: 'Proud blití trvá o 0,5 s déle — víc tiků za aktivaci.' },
+    { id: 'davka', name: 'hustší proud', cap: 2, desc: 'Blití chrlí rychleji (kratší prodleva mezi tiky).' },
     { id: 'kuzel', name: 'širší kužel',  cap: 2, desc: 'Kužel blití je o 15° širší.' },
   ],
   chcani: [
@@ -264,7 +266,7 @@ PS.BOSSES = [
   { id: 'rohony', name: 'Rohony',         strength: 10, vis: 'divná postava s tetováním na obličeji',   color: 0xb44cff,
     attackName: 'vysílá negativní zvukové vlny', mechanic: 'pushwave',  mech: 'trychtýř odhazuje hrdinu, nedává damage' },
   { id: 'churaq', name: 'Churaq Sputnik', strength: 15, vis: 'inspirováno rapperem Churaq Sputnik',     color: 0xff9100,
-    attackName: 'útok baseballovou holí',     mechanic: 'meleeswing',  mech: 'švih do okolí — odhodí hrdinu a dá střední damage, jen na blízko' },
+    attackName: 'útok baseballovou holí',     mechanic: 'meleeswing',  mech: 'velký telegrafovaný švih pálkou do oblouku — odhodí hrdinu a dá střední damage' },
   { id: 'haades', name: 'Haades',         strength: 20, vis: 'inspirováno rapperem Haades',             color: 0x666688,
     attackName: 'vyvolává Pikaře lvl 2 a 3',  mechanic: 'summoner',    mech: 'sám neútočí, vyvolává další nepřátele' },
   { id: 'schyza', name: 'Schýza',         strength: 25, vis: 'černá hmota, která není postava',         color: 0x1a1a2e,
@@ -326,8 +328,11 @@ PS.BALANCE = {
   // ostatní volby (nový útok, pasivka) mají váhu 1.
   weaponUpWeight: (lvl) => Math.max(1.6, 7 - (lvl - 2) * 0.5),
 
-  // Mapa a výkon
-  mapSize: 8000,
+  // Mapa a výkon — velká mapa, ať hrdina prakticky nedojde na okraj (5× původní
+  // 8000). Hustota nepřátel se NEMĚNÍ: spawn je relativní k hrdinovi (viz
+  // Spawner.ringPosition / recycleFar), ne k velikosti mapy. Podlaha se dláždí
+  // nekonečně (tileSprite se scrollFactor 0), takže velikost neovlivní výkon.
+  mapSize: 40000,
   maxEnemies: 300,
 
   // Boss aréna: při příchodu bosse utvoří běžní nepřátelé neprostupný ring
@@ -342,8 +347,11 @@ PS.BALANCE = {
   // Zůstává na mapě, dokud ji hrdina nesebere (max 1 zároveň); HUD šipka vede k ní.
   rundaIntervalMin: 240,             // s
   rundaIntervalMax: 360,             // s
-  rundaSpawnMin: 800,                // spawn vzdálenost od hrdiny (vždy za okrajem obrazovky)
-  rundaSpawnMax: 1300,
+  // Spawn vzdálenost od HRDINY (NE od mapy) — drží se relativně k němu, takže se
+  // ani na velké mapě nikdy neobjeví přes půl mapy. ~obrazovku daleko: pár sekund
+  // cesty, HUD šipka k ní vede.
+  rundaSpawnMin: 1100,
+  rundaSpawnMax: 1700,
   rundaKeys:     { min: 2, max: 4 }, // časově omezené klíče (náhodné, bez duplicit)
   rundaUpgrades: { min: 1, max: 3 }, // stálé upgrady: vylepšení vlastněných útoků + pasivky
 };

@@ -376,6 +376,14 @@ window.GameScene = class GameScene extends Phaser.Scene {
         .setTint(cfg.tint).setAlpha(cfg.alpha || 0.4)
         .setScale(cfg.r * 2 / 64).setDepth(2),
     };
+    // nápis na skvrně (tag Don G: "DON") — sprej font + kontrastní barva, lehce nakřivo
+    if (cfg.label) {
+      const c = PS.UI.contrastText(cfg.tint);
+      z.label = this.add.text(cfg.x, cfg.y, cfg.label, {
+        fontFamily: PS.UI.FONT_TAG, fontSize: Math.round(cfg.r * 0.8) + 'px',
+        color: c.color, stroke: c.stroke, strokeThickness: Math.max(2, Math.round(cfg.r * 0.06)),
+      }).setOrigin(0.5).setDepth(2).setRotation((Math.random() - 0.5) * 0.5);
+    }
     this.zones.push(z);
     return z;
   }
@@ -388,6 +396,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
       const z = this.zones[i];
       if (now > z.until) {
         z.img.destroy();
+        if (z.label) z.label.destroy();
         this.zones.splice(i, 1);
         continue;
       }
@@ -837,8 +846,8 @@ window.GameScene = class GameScene extends Phaser.Scene {
         case 'pushwave': // Rohony — zvuková vlna (bez damage)
           if (e.atkAcc >= 3.0 && dist < 210) { e.atkAcc = 0; this.bossPushwave(e); }
           break;
-        case 'meleeswing': // Churaq — baseballka jen na blízko
-          if (e.atkAcc >= 2.0 && dist < 105) { e.atkAcc = 0; this.bossSwing(e); }
+        case 'meleeswing': // Churaq — velký telegrafovaný švih pálkou
+          if (e.atkAcc >= 4.0 && dist < 320) { e.atkAcc = 0; this.bossSwing(e); }
           break;
         case 'summoner': // Haades — vyvolává Pikaře
           if (e.atkAcc >= 4.0) { e.atkAcc = 0; this.bossSummon(e); }
@@ -886,15 +895,55 @@ window.GameScene = class GameScene extends Phaser.Scene {
     }
   }
 
+  // Churaq — velký, ale DODGEOVATELNÝ švih pálkou: nejdřív telegraf (náběh +
+  // nebezpečná výseč zaměřená na hrdinu), po ~0,36 s teprve švihne. Velký range,
+  // STŘEDNÍ damage, velký knockback. Kdo včas vyběhne z výseče/dosahu, uhne.
   bossSwing(boss) {
-    this.fxCircle(boss.x, boss.y, 105, 0xff9100);
-    const dist = Phaser.Math.Distance.Between(boss.x, boss.y, this.player.x, this.player.y);
-    if (dist < 110) {
-      this.hitPlayer(boss.dmg);
-      const a = Phaser.Math.Angle.Between(boss.x, boss.y, this.player.x, this.player.y);
-      this.player.setVelocity(Math.cos(a) * 365, Math.sin(a) * 365);
-      this.playerKbUntil = this.time.now + 250;
-    }
+    const range = 300, half = Phaser.Math.DegToRad(75);
+    const dir = Phaser.Math.Angle.Between(boss.x, boss.y, this.player.x, this.player.y);
+    // telegraf: náznak zásahové výseče + lehký otřes (varování)
+    this.fxCone(dir, half, range, 0xff9100);
+    this.cameras.main.shake(120, 0.003);
+    this.time.delayedCall(360, () => {
+      if (this.over || !boss.active) return;
+      this.fxBatSwing(boss.x, boss.y, dir, range, half); // samotný švih
+      this.cameras.main.shake(160, 0.006);
+      const dx = this.player.x - boss.x, dy = this.player.y - boss.y;
+      const d = Math.hypot(dx, dy);
+      if (d < range) {
+        const a = Math.atan2(dy, dx);
+        if (Math.abs(Phaser.Math.Angle.Wrap(a - dir)) <= half) {
+          this.hitPlayer(boss.dmg * 0.6); // střední damage
+          this.player.setVelocity(Math.cos(a) * 420, Math.sin(a) * 420); // velký odhoz
+          this.playerKbUntil = this.time.now + 300;
+        }
+      }
+    });
+  }
+
+  // vizuál švihu pálkou — rychlý oblouk (swoosh) napříč výsečí + dřevěná „pálka"
+  // švihající od bosse přes celou výseč. Graphics jako ostatní fx* (bez textury).
+  fxBatSwing(x, y, dir, range, half) {
+    const g = this.add.graphics().setDepth(7);
+    g.lineStyle(8, 0xffd24a, 0.8);
+    g.beginPath(); g.arc(x, y, range * 0.9, dir - half, dir + half, false); g.strokePath();
+    g.lineStyle(4, 0xffffff, 0.6);
+    g.beginPath(); g.arc(x, y, range * 0.78, dir - half, dir + half, false); g.strokePath();
+    this.tweens.add({ targets: g, alpha: 0, duration: 280, onComplete: () => g.destroy() });
+
+    const bat = this.add.graphics().setDepth(8);
+    const drawBat = (ang) => {
+      bat.clear().lineStyle(7, 0xc77b30, 0.95);
+      bat.beginPath(); bat.moveTo(x, y);
+      bat.lineTo(x + Math.cos(ang) * range * 0.85, y + Math.sin(ang) * range * 0.85);
+      bat.strokePath();
+    };
+    drawBat(dir - half);
+    this.tweens.addCounter({
+      from: 0, to: 1, duration: 180, ease: 'Cubic.easeIn',
+      onUpdate: (tw) => drawBat(dir - half + 2 * half * tw.getValue()),
+      onComplete: () => bat.destroy(),
+    });
   }
 
   bossSummon(boss) {

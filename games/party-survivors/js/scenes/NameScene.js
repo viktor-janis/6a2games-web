@@ -52,7 +52,7 @@ window.NameScene = class NameScene extends Phaser.Scene {
     inp.maxLength = 12;
     inp.value = this.name;
     inp.autocomplete = 'off';
-    inp.autocapitalize = 'characters';
+    inp.autocapitalize = 'off'; // chovej se jako běžný textový editor (žádné auto-kapitálky)
     inp.spellcheck = false;
     inp.setAttribute('autocorrect', 'off');
     inp.setAttribute('enterkeyhint', 'go');
@@ -68,7 +68,8 @@ window.NameScene = class NameScene extends Phaser.Scene {
     this._inp = inp;
 
     const sync = () => {
-      const v = inp.value.toUpperCase().replace(/[^0-9A-ZÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ .\-_]/g, '').slice(0, 12);
+      // povol malá i velká písmena (vč. diakritiky), číslice, mezeru, . - _
+      const v = inp.value.replace(/[^0-9A-Za-záčďéěíňóřšťúůýžÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ .\-_]/g, '').slice(0, 12);
       if (v !== inp.value) inp.value = v;
       this.name = v;
       this.refresh();
@@ -93,9 +94,10 @@ window.NameScene = class NameScene extends Phaser.Scene {
       return;
     }
     // jeden tisknutelný znak: písmena (vč. diakritiky), číslice, mezera, . - _
+    // zachovej velikost přesně jak ji hráč napsal (malá i velká)
     if (e.key.length === 1 && this.name.length < 12
         && /^[0-9a-záčďéěíňóřšťúůýž .\-_]$/i.test(e.key)) {
-      this.name += e.key.toUpperCase();
+      this.name += e.key;
       PS.Audio.ui();
       this.refresh();
     }

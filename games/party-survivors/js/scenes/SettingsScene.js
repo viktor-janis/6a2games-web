@@ -104,6 +104,7 @@ window.SettingsScene = class SettingsScene extends Phaser.Scene {
     const cfg = PS.TouchCfg.load();
     const SIZES = [['MALÝ', 0.8], ['STŘEDNÍ', 1.0], ['VELKÝ', 1.3]];
     const OPACS = [['SLABÁ', 0.3], ['STŘEDNÍ', 0.5], ['SILNÁ', 0.75]];
+    const MODES = [['PLOVOUCÍ', 'floating'], ['PEVNÝ', 'fixed']];
     const nearest = (arr, v) => {
       let bi = 0, bd = Infinity;
       arr.forEach(([, val], i) => { const d = Math.abs(val - v); if (d < bd) { bd = d; bi = i; } });
@@ -111,25 +112,32 @@ window.SettingsScene = class SettingsScene extends Phaser.Scene {
     };
     let si = nearest(SIZES, cfg.size != null ? cfg.size : 1);
     let oi = nearest(OPACS, cfg.opacity != null ? cfg.opacity : 0.5);
-    const save = () => PS.TouchCfg.save({ size: SIZES[si][1], opacity: OPACS[oi][1] });
+    let mi = Math.max(0, MODES.findIndex(m => m[1] === (cfg.mode || 'floating')));
+    const save = () => {
+      PS.TouchCfg.save({ size: SIZES[si][1], opacity: OPACS[oi][1], mode: MODES[mi][1] });
+      if (PS.Touch) PS.Touch.applyCfg(); // projeví se hned (i při změně z pauzy)
+    };
 
-    PS.UI.text(this, W / 2, 125, 'DOTYKOVÉ OVLÁDÁNÍ', 11, '#8888aa');
+    PS.UI.text(this, W / 2, 110, 'DOTYKOVÉ OVLÁDÁNÍ', 11, '#8888aa');
 
-    const sound = PS.UI.button(this, W / 2, 212, 560, 60, '');
-    const fs = PS.UI.button(this, W / 2, 286, 560, 60, 'CELÁ OBRAZOVKA');
-    const size = PS.UI.button(this, W / 2, 360, 560, 60, '');
-    const opac = PS.UI.button(this, W / 2, 434, 560, 60, '');
+    const sound = PS.UI.button(this, W / 2, 174, 560, 56, '');
+    const joy = PS.UI.button(this, W / 2, 244, 560, 56, '');
+    const size = PS.UI.button(this, W / 2, 314, 560, 56, '');
+    const opac = PS.UI.button(this, W / 2, 384, 560, 56, '');
+    const fs = PS.UI.button(this, W / 2, 454, 560, 56, 'CELÁ OBRAZOVKA');
     const back = PS.UI.button(this, W / 2, H - 64, 360, 58, 'ZPĚT');
     back.setSelected(true);
 
     const refresh = () => {
       sound.setLabel('ZVUK: ' + (PS.Audio.muted ? 'VYPNUTO' : 'ZAPNUTO'));
+      joy.setLabel('TYP JOYSTICKU: ' + MODES[mi][0]);
       size.setLabel('JOYSTICK: ' + SIZES[si][0]);
       opac.setLabel('PRŮHLEDNOST: ' + OPACS[oi][0]);
     };
     refresh();
 
     sound.onClick = () => { PS.Audio.setMuted(!PS.Audio.muted); refresh(); };
+    joy.onClick = () => { mi = (mi + 1) % MODES.length; save(); refresh(); };
     fs.onClick = () => {
       // iPhone Safari nepodporuje Fullscreen API → poradit „Přidat na plochu"
       if (this.scale.fullscreen.available) PS.goFullscreen(this);

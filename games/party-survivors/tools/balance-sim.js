@@ -234,18 +234,14 @@ class Sim {
     const d = this.def, w = this.w;
     switch (d.archetype) {
       case 'cone': {
-        w.acc += dt;
-        if (w.acc >= d.cd * this.cdMult && this.nowMs >= w.streamUntil) {
-          w.acc = 0; w.streamUntil = this.nowMs + d.duration * 1000; w.tickAcc = d.tick;
-        }
-        if (this.nowMs < w.streamUntil) {
-          w.tickAcc += dt;
-          if (w.tickAcc >= d.tick) {
-            w.tickAcc = 0;
-            const dir = this.facingDir(), half = deg2rad(d.angle / 2), range = this.area(d.range);
-            for (const e of this.enemiesInCone(dir, half, range))
-              this.dealDamage(e, d.dmg, { dot: { dps: d.dot.dps, dur: d.dot.dur } });
-          }
+        // blití — TRVALÝ proud bez mezer (port weapons.tick_cone): tiká každých
+        // d.tick (×cdMult). Bez perků (sim je level 1), takže žádné 'davka'.
+        w.tickAcc += dt;
+        if (w.tickAcc >= d.tick * this.cdMult) {
+          w.tickAcc = 0;
+          const dir = this.facingDir(), half = deg2rad(d.angle / 2), range = this.area(d.range);
+          for (const e of this.enemiesInCone(dir, half, range))
+            this.dealDamage(e, d.dmg, { dot: { dps: d.dot.dps, dur: d.dot.dur } });
         }
         break;
       }

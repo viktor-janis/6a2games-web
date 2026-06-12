@@ -66,6 +66,7 @@
     ? Promise.all([
         document.fonts.load('700 16px "Baloo 2"', CZ_SAMPLE),
         document.fonts.load('800 16px "Baloo 2"', CZ_SAMPLE),
+        document.fonts.load('40px "Permanent Marker"', 'DON'), // tag Don G — ať první "DON" nenaskočí fallbackem
       ]).then(() => document.fonts.ready)
     : Promise.resolve();
   const timeout = new Promise(resolve => setTimeout(resolve, 2500));

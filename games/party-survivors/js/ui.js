@@ -60,8 +60,19 @@ PS.UI = {
   FONT: '"Baloo 2", "Trebuchet MS", system-ui, sans-serif',
   W_BODY: '700',   // běžný text
   W_BOLD: '800',   // nadpisy / tlačítka
+  FONT_TAG: '"Permanent Marker", "Baloo 2", cursive', // fixa/sprej — jen nápis "DON" v tagu Don G
 
   hex(n) { return '#' + n.toString(16).padStart(6, '0'); },
+
+  // Kontrastní text k barevné skvrně (tag Don G): podle jasu tintu zvol tmavý
+  // nebo světlý text + opačný obrys, ať je „DON" čitelný na jakékoli barvě.
+  contrastText(tint) {
+    const r = (tint >> 16) & 0xff, g = (tint >> 8) & 0xff, b = tint & 0xff;
+    const lum = 0.299 * r + 0.587 * g + 0.114 * b; // 0..255
+    return lum > 140
+      ? { color: '#0a0010', stroke: '#ffffff' }  // světlá skvrna (cyan) → tmavý text
+      : { color: '#ffffff', stroke: '#0a0010' }; // tmavá skvrna (pink/fialová) → bílý text
+  },
 
   // sekundy -> "MM:SS"
   fmtTime(s) {

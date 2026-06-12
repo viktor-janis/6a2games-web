@@ -44,28 +44,22 @@ PS.Weapon = class Weapon {
 
   update(dt) { this['tick_' + this.def.archetype](dt); }
 
-  // ============ blití — kužel ve směru pohledu s DoT (Rashid) ============
+  // ============ blití — TRVALÁ rychlopalba ve směru chůze s DoT (Rashid) ============
+  // Plynulý proud BEZ mezer (žádný cooldown/duration jako dřív): každý `tick`
+  // chrlí kužel tam, kam hrdina jde. Tím je konkurenceschopný vůči ostatním.
+  // Interval zrychluje perk 'davka' (hustší proud) i zkrácení cooldownů (cdMult).
   tick_cone(dt) {
-    const s = this.scene, def = this.def, now = s.time.now;
-    this.acc += dt;
-    if (this.acc >= this.cd() && now >= this.streamUntil) {
-      // aktivace čistě na interval (VS styl) — i naprázdno
-      this.acc = 0;
-      this.streamUntil = now + (def.duration + 0.5 * this.perk('davka')) * 1000;
-      this.tickAcc = def.tick; // první tik okamžitě
-    }
-    if (now < this.streamUntil) {
-      this.tickAcc += dt;
-      if (this.tickAcc >= def.tick) {
-        this.tickAcc = 0;
-        this.streamDir = s.facingDir(); // proud míří, kam je hrdina otočený
-        const range = this.area(def.range);
-        const half = Phaser.Math.DegToRad((def.angle + 15 * this.perk('kuzel')) / 2);
-        s.enemiesInCone(this.streamDir, half, range).forEach(e =>
-          s.dealDamage(e, this.dmg(), { dot: { dps: def.dot.dps, dur: def.dot.dur }, source: this.id }));
-        s.fxVomit(this.streamDir, half, range);
-      }
-    }
+    const s = this.scene, def = this.def;
+    this.tickAcc += dt;
+    const interval = def.tick * s.stats.cdMult * Math.pow(0.82, this.perk('davka'));
+    if (this.tickAcc < interval) return;
+    this.tickAcc = 0;
+    this.streamDir = s.facingDir(); // proud míří, kam je hrdina otočený
+    const range = this.area(def.range);
+    const half = Phaser.Math.DegToRad((def.angle + 15 * this.perk('kuzel')) / 2);
+    s.enemiesInCone(this.streamDir, half, range).forEach(e =>
+      s.dealDamage(e, this.dmg(), { dot: { dps: def.dot.dps, dur: def.dot.dur }, source: this.id }));
+    s.fxVomit(this.streamDir, half, range);
   }
 
   // ============ chcaní — paprsek + kaluž (Poskok) ============
@@ -119,6 +113,7 @@ PS.Weapon = class Weapon {
       x: s.player.x, y: s.player.y, r: this.area(def.r),
       dur: def.dur, tickDmg: this.dmg(), tick: def.tick, source: this.id,
       tint: tints[Math.floor(Math.random() * tints.length)], alpha: 0.5,
+      label: 'DON', // nápis sprejem (kontrastní barva, sprej font) — viz GameScene.addZone
     }));
   }
 

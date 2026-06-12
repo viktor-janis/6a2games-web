@@ -259,6 +259,8 @@ window.HUDScene = class HUDScene extends Phaser.Scene {
     const g = this.gameScene;
     if (!g || !g.stats) return;
 
+    if (PS.Touch) PS.Touch.update(); // pevný joystick: drží klidovou základnu vykreslenou
+
     this.xpBar.scaleX = Phaser.Math.Clamp(g.xp / g.xpNext, 0, 1);
     this.levelText.setText('LVL ' + g.level);
     this.timeText.setText(PS.UI.fmtTime(g.elapsed));
