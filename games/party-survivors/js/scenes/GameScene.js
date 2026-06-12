@@ -962,15 +962,19 @@ window.GameScene = class GameScene extends Phaser.Scene {
   }
 
   // Churaq — velký, ale DODGEOVATELNÝ švih pálkou: nejdřív telegraf (náběh +
-  // nebezpečná výseč zaměřená na hrdinu), po ~0,36 s teprve švihne. Velký range,
-  // STŘEDNÍ damage, velký knockback. Kdo včas vyběhne z výseče/dosahu, uhne.
+  // nebezpečná výseč zaměřená na hrdinu), po ~0,75 s teprve švihne. Užší výseč
+  // (60°), aby se dal obkroužit. ZÁMĚRNĚ bez knockbacku: melee hrdina bez útoku
+  // na dálku musí zůstat nablízku — odhoz + ztráta kontroly ho dřív vystrkoval
+  // z dosahu každé 3 s a boss byl prakticky neporazitelný. Teď je to čistá výměna:
+  // kdo vyběhne z výseče, uhne úplně; kdo zůstane stát, schytá střední damage,
+  // ale neztratí pozici a může dál útočit.
   bossSwing(boss) {
-    const range = 210, half = Phaser.Math.DegToRad(75);
+    const range = 210, half = Phaser.Math.DegToRad(60);
     const dir = Phaser.Math.Angle.Between(boss.x, boss.y, this.player.x, this.player.y);
     // telegraf: náznak zásahové výseče + lehký otřes (varování)
     this.fxCone(dir, half, range, 0xff9100);
     this.cameras.main.shake(120, 0.003);
-    this.time.delayedCall(360, () => {
+    this.time.delayedCall(750, () => {
       if (this.over || !boss.active) return;
       this.fxBatSwing(boss.x, boss.y, dir, range, half); // samotný švih
       this.cameras.main.shake(160, 0.006);
@@ -979,9 +983,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
       if (d < range) {
         const a = Math.atan2(dy, dx);
         if (Math.abs(Phaser.Math.Angle.Wrap(a - dir)) <= half) {
-          this.hitPlayer(boss.dmg * 0.7); // střední damage
-          this.player.setVelocity(Math.cos(a) * 420, Math.sin(a) * 420); // velký odhoz
-          this.playerKbUntil = this.gameTime + 300;
+          this.hitPlayer(boss.dmg * 0.7); // střední damage, ale BEZ odhozu a ztráty kontroly
         }
       }
     });
