@@ -51,7 +51,7 @@ window.HUDScene = class HUDScene extends Phaser.Scene {
     this.bossUi.add([this.bossName, this.bossBg, this.bossBar]);
 
     // ---------- šipka k Rundě panclů (jen když je mimo obrazovku) ----------
-    this.rundaArrow = this.add.image(0, 0, 'arrow').setTint(0xffd24a).setDepth(60).setVisible(false);
+    this.rundaArrow = this.add.image(0, 0, 'arrow').setTint(0xffd24a).setScale(2.8).setDepth(60).setVisible(false);
 
     // ---------- oznámení (nový tier, boss) ----------
     this.announceQueue = [];
@@ -243,13 +243,15 @@ window.HUDScene = class HUDScene extends Phaser.Scene {
 
   onAnnounce({ text, color }) {
     const s = this.safe || { cx: this.scale.width / 2, y: 0 };
-    const t = PS.UI.text(this, s.cx, s.y + 130, text, 15, PS.UI.hex(color));
-    t.setShadow(0, 0, PS.UI.hex(color), 8, true, true);
-    t.setAlpha(0).setDepth(50);
+    const t = PS.UI.text(this, s.cx, s.y + 140, text, 24, PS.UI.hex(color));
+    t.setStroke('#000000', 5);                              // černý obrys = čitelné i přes dění ve hře
+    t.setShadow(0, 0, PS.UI.hex(color), 14, true, true);    // silnější glow
+    t.setAlpha(0).setScale(1.4).setDepth(50);
+    // nálet s lehkým „přestřelením" (Back.Out) — upoutá oko, i když hráč kouká na hru
     this.tweens.add({
-      targets: t, alpha: 1, duration: 200,
+      targets: t, alpha: 1, scale: 1, duration: 240, ease: 'Back.Out',
       onComplete: () => this.tweens.add({
-        targets: t, alpha: 0, y: s.y + 110, delay: 1800, duration: 500,
+        targets: t, alpha: 0, y: s.y + 115, delay: 2200, duration: 500,
         onComplete: () => t.destroy(),
       }),
     });
@@ -313,10 +315,12 @@ window.HUDScene = class HUDScene extends Phaser.Scene {
         this.rundaArrow.setVisible(false);
       } else {
         const t = Math.min(halfW / Math.abs(dx || 1e-6), halfH / Math.abs(dy || 1e-6));
+        const pulse = 0.5 + 0.5 * Math.sin(this.time.now / 150);
         this.rundaArrow.setVisible(true)
           .setPosition(s.cx + dx * t, (s.y + s.b) / 2 + dy * t)
           .setRotation(Math.atan2(dy, dx))
-          .setAlpha(0.65 + 0.35 * Math.sin(this.time.now / 150));
+          .setScale(2.8 + 0.5 * pulse)          // tep velikosti — táhne oko na okraj
+          .setAlpha(0.85 + 0.15 * pulse);       // vysoká spodní hranice = pořád dobře vidět
       }
     } else {
       this.rundaArrow.setVisible(false);
