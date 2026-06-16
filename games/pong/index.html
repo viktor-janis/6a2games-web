@@ -278,47 +278,56 @@
     -webkit-tap-highlight-color: transparent;
   }
 
-  /* Dotykové prvky jsou na PC skryté; zobrazí je až JS (.visible) / html.touch */
-  #touch-controls,
+  /* Dotykové prvky jsou na PC skryté; zobrazí je až JS / html.touch */
+  .tc-side,
   #touch-menu,
   #touch-menu-btn,
   #end-touch-actions { display: none; }
   .settings-touch-only { display: none; }
   html.touch .settings-touch-only { display: block; }
   html.touch #settings-back,
-  html.touch #hint { display: none; }
+  html.touch #hint,
+  html.touch #back-to-menu { display: none; }
 
-  /* Ovládací pruh pod plochou */
-  html.touch #touch-controls.visible {
-    display: flex;
-    flex: 0 0 auto;
-    width: 100%;
-    height: clamp(64px, 16vh, 120px);
+  /* Landscape: ovládání po STRANÁCH, canvas přes celou výšku */
+  html.touch #wrap {
+    flex-direction: row;
+    gap: 0;
     align-items: stretch;
-    justify-content: space-between;
+    justify-content: center;
     box-sizing: border-box;
-    padding: 6px 10px;
-    gap: 10px;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   }
-  html.touch #touch-controls.solo { justify-content: center; }
-  html.touch #touch-controls.solo .tc-right { display: none; }
-  .tc-group { display: flex; gap: 10px; flex: 1 1 0; max-width: 48%; }
-  #touch-controls.solo .tc-left { max-width: 72%; }
+  html.touch #play-area { flex: 1 1 auto; min-width: 0; height: 100%; }
+  /* canvas se roztáhne na celou výšku (i nahoru), šířka dopočtena přes poměr */
+  html.touch #play-area canvas { height: 100%; width: auto; max-width: 100%; max-height: 100%; }
+  html.touch #wrap.playing .tc-side {
+    display: flex;
+    flex-direction: column;
+    flex: 0 0 clamp(58px, 12vw, 116px);
+    align-items: stretch;
+    justify-content: center;
+    gap: 16px;
+    box-sizing: border-box;
+    /* horní mezera kvůli ≡ tlačítku vlevo nahoře (symetricky i vpravo) */
+    padding: calc(58px + env(safe-area-inset-top)) 6px calc(10px + env(safe-area-inset-bottom));
+  }
+  html.touch #wrap.playing.solo .tc-right { display: none; }
   .tc-btn {
     flex: 1 1 0;
     background: #111; color: #fff;
-    border: 2px solid #666; border-radius: 10px;
-    font-size: 32px; line-height: 1;
+    border: 2px solid #666; border-radius: 12px;
+    font-size: 34px; line-height: 1;
     font-family: "Courier New", monospace;
     touch-action: none; user-select: none; -webkit-user-select: none;
     -webkit-tap-highlight-color: transparent;
   }
   .tc-btn:active { background: #fff; color: #000; border-color: #fff; }
 
-  /* Dotykové menu (překryv plochy) */
+  /* Dotykové menu (překryv celé obrazovky) */
   html.touch #touch-menu.visible {
     display: flex;
-    position: absolute; inset: 0;
+    position: fixed; inset: 0; z-index: 60;
     flex-direction: column; align-items: center; justify-content: center;
     gap: 16px; padding: 20px; box-sizing: border-box;
     background: #000;
@@ -349,12 +358,15 @@
   }
   #tm-back:active { background: #fff; color: #000; }
 
-  /* ≡ tlačítko – zpět do herního menu (jen ve hře) */
+  /* ≡ tlačítko – zpět do herního menu (jen ve hře), vlevo nahoře nad šipkami */
   html.touch #touch-menu-btn {
-    position: fixed; top: 14px; right: 14px; z-index: 80;
-    width: 52px; height: 44px;
+    position: fixed;
+    top: calc(8px + env(safe-area-inset-top));
+    left: calc(8px + env(safe-area-inset-left));
+    z-index: 80;
+    width: 48px; height: 40px;
     background: #111; color: #fff; border: 2px solid #666; border-radius: 8px;
-    font-size: 24px; line-height: 1; font-family: "Courier New", monospace;
+    font-size: 22px; line-height: 1; font-family: "Courier New", monospace;
   }
   html.touch #touch-menu-btn:active { background: #fff; color: #000; }
 
@@ -414,26 +426,25 @@
 <a id="back-to-menu" href="../../index.html" title="Zpět do menu">&larr; Menu</a>
 
 <div id="wrap">
+  <div class="tc-side tc-left">
+    <button class="tc-btn" data-tc="leftUp">▲</button>
+    <button class="tc-btn" data-tc="leftDown">▼</button>
+  </div>
   <div id="play-area">
     <canvas id="game" width="800" height="500"></canvas>
-    <div id="touch-menu">
-      <div id="tm-title">PONG</div>
-      <div id="tm-sub"></div>
-      <div id="tm-options"></div>
-      <button id="tm-back">← Zpět</button>
-    </div>
+  </div>
+  <div class="tc-side tc-right">
+    <button class="tc-btn" data-tc="rightUp">▲</button>
+    <button class="tc-btn" data-tc="rightDown">▼</button>
   </div>
   <div id="hint"></div>
-  <div id="touch-controls">
-    <div class="tc-group tc-left">
-      <button class="tc-btn" data-tc="leftUp">▲</button>
-      <button class="tc-btn" data-tc="leftDown">▼</button>
-    </div>
-    <div class="tc-group tc-right">
-      <button class="tc-btn" data-tc="rightUp">▲</button>
-      <button class="tc-btn" data-tc="rightDown">▼</button>
-    </div>
-  </div>
+</div>
+
+<div id="touch-menu">
+  <div id="tm-title">PONG</div>
+  <div id="tm-sub"></div>
+  <div id="tm-options"></div>
+  <button id="tm-back">← Zpět</button>
 </div>
 
 <button id="touch-menu-btn" aria-label="Herní menu">≡</button>
@@ -498,6 +509,7 @@
   <button class="settings-touch-btn settings-touch-only" id="settings-touch-back">← Zpět</button>
 </div>
 
+<script src="../../hub-music.js"></script>
 <script>
 (() => {
   const canvas    = document.getElementById('game');
@@ -790,17 +802,35 @@
   }
   const soundPaddle  = () => beep(520, 0.06);
   const soundWall    = () => beep(330, 0.05);
-  const soundScore   = () => { beep(180, 0.18, 'square', 0.08); setTimeout(() => beep(140, 0.22, 'square', 0.07), 120); };
+  // Gól – krátká arkádová znělka (vzestupné durové arpeggio C-E-G-C s akcentem).
+  // Gainy 0.08–0.10 = o kousek nad herními pípáky (0.05–0.06), ale ve stejné tiché
+  // syntezátorové škále, takže sedí k SFX i k normalizovaným voice trackům.
+  const soundScore   = () => {
+    beep(523, 0.08, 'square', 0.08);                          // C5
+    setTimeout(() => beep(659, 0.08, 'square', 0.08),  80);   // E5
+    setTimeout(() => beep(784, 0.08, 'square', 0.08), 160);   // G5
+    setTimeout(() => beep(1047, 0.22, 'square', 0.10), 240);  // C6 (vrchol)
+  };
 
-  // Náhodné hlasové klipy při sebrání mystery boxu (nikdy stejný dvakrát po sobě)
-  const BOX_SOUND_FILES = [
-    '- DÍKY DONE.mp3', '- DONG EXCLUSIVE.mp3', '- KDO SEM KURVA POZVAL DONA.mp3',
-    '- TO CHCE ASI DALŠÍ PIVO.mp3', 'call the fire department.mp3',
-    'Hergot, tak to je extrém.mp3', 'human rights.mp3', 'KillBill.mp3',
+  // Náhodné hlasové klipy při sebrání mystery boxu (nikdy stejný dvakrát po sobě).
+  // Klipy mají nevyrovnaný mastering (změřeno přes ffmpeg volumedetect – mean dB
+  // u každého). Per-soubor hlasitost je srovná na ~-26 dB, aby seděly k tichým
+  // herním pípákům a hlavně aby nevyskakovaly ty „přepálené" (call the fire
+  // department / human rights jely na 0 dBFS). v = výsledná hlasitost (0–1).
+  const BOX_SOUNDS = [
+    { f: '- DÍKY DONE.mp3',                 v: 1.00 }, // mean -28.3 dB
+    { f: '- DONG EXCLUSIVE.mp3',            v: 0.70 }, // mean -22.9 dB
+    { f: '- KDO SEM KURVA POZVAL DONA.mp3', v: 0.74 }, // mean -23.4 dB
+    { f: '- TO CHCE ASI DALŠÍ PIVO.mp3',    v: 1.00 }, // mean -26.3 dB
+    { f: 'call the fire department.mp3',    v: 0.22 }, // mean -13.0 dB (0 dBFS!)
+    { f: 'Hergot, tak to je extrém.mp3',    v: 1.00 }, // mean -25.9 dB
+    { f: 'human rights.mp3',                v: 0.28 }, // mean -14.8 dB (0 dBFS!)
+    { f: 'KillBill.mp3',                    v: 1.00 }, // mean -25.9 dB
   ];
-  const boxSounds = BOX_SOUND_FILES.map(f => {
-    const a = new Audio('sounds/' + encodeURIComponent(f));
+  const boxSounds = BOX_SOUNDS.map(s => {
+    const a = new Audio('sounds/' + encodeURIComponent(s.f));
     a.preload = 'auto';
+    a.volume = s.v;
     return a;
   });
   let lastBoxSoundIdx = -1;
@@ -897,6 +927,7 @@
     initBall();
     state = STATE.MENU;
     updateHint();
+    if (window.HubMusic) HubMusic.play();
   }
 
   function startNewMatch() {
@@ -916,6 +947,7 @@
     configureTouchControls();
     state = STATE.READY;
     updateHint();
+    if (window.HubMusic) HubMusic.stopForGame();
   }
 
   function startPoint() {
@@ -1429,8 +1461,8 @@
     (navigator.maxTouchPoints > 0 || 'ontouchstart' in window);
   if (isTouch) document.documentElement.classList.add('touch');
 
+  const wrap          = document.getElementById('wrap');
   const playArea      = document.getElementById('play-area');
-  const touchControls = document.getElementById('touch-controls');
   const touchMenu     = document.getElementById('touch-menu');
   const tmSub         = document.getElementById('tm-sub');
   const tmOptions     = document.getElementById('tm-options');
@@ -1479,20 +1511,20 @@
   }
   tmBack.addEventListener('click', () => { ensureAudio(); menuBack(); });
 
-  // Dotykové šipky → přepínají stávající keys flagy (multitouch přes pointer events).
-  // SOLO: jen levá skupina (ovládá levou pálku přes p2 klávesy). MULTI: levá=p1, pravá=p2.
-  const touchBtnEls = Array.from(document.querySelectorAll('#touch-controls .tc-btn'));
+  // Dotykové šipky po stranách → přepínají stávající keys flagy (multitouch přes pointer events).
+  // SOLO: jen levá strana (ovládá levou pálku přes p2 klávesy). MULTI: levá=p1, pravá=p2.
+  const touchBtnEls = Array.from(document.querySelectorAll('.tc-side .tc-btn'));
   function setBtnKey(tc, key) {
     const el = touchBtnEls.find(b => b.dataset.tc === tc);
     if (el) el._key = key;
   }
   function configureTouchControls() {
     if (gameMode === MODE.SOLO) {
-      touchControls.classList.add('solo');
+      wrap.classList.add('solo');
       setBtnKey('leftUp', 'p2Up'); setBtnKey('leftDown', 'p2Down');
       setBtnKey('rightUp', null);  setBtnKey('rightDown', null);
     } else {
-      touchControls.classList.remove('solo');
+      wrap.classList.remove('solo');
       setBtnKey('leftUp', 'p1Up');  setBtnKey('leftDown', 'p1Down');
       setBtnKey('rightUp', 'p2Up'); setBtnKey('rightDown', 'p2Down');
     }
@@ -1539,7 +1571,7 @@
     if (!isTouch) return;
     const inGame = (state === STATE.READY || state === STATE.PLAYING);
     touchMenuBtn.style.display = inGame ? 'block' : 'none';
-    touchControls.classList.toggle('visible', inGame);
+    wrap.classList.toggle('playing', inGame);
     const showMenu = (state === STATE.MENU && menuPhase !== 'settings');
     const sig = state + '|' + menuPhase + '|' + gameMode;
     if (sig !== _mobileSig) { _mobileSig = sig; if (showMenu) buildTouchMenu(); }

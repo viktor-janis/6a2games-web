@@ -9,6 +9,9 @@ window.NameScene = class NameScene extends Phaser.Scene {
   create() {
     const { width: W, height: H } = this.scale;
 
+    // začíná hra (zadání jména) → zastav hudbu na pozadí webu a posuň na další track
+    if (window.HubMusic) HubMusic.stopForGame();
+
     PS.UI.clubBackdrop(this); // tmavá klubová atmosféra (sjednoceno s hrou)
 
     PS.UI.title(this, W / 2, 150, 'ZADEJ HERNÍ JMÉNO', 32, PS.COLORS.cyan);

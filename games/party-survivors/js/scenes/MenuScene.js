@@ -7,6 +7,9 @@ window.MenuScene = class MenuScene extends Phaser.Scene {
   create() {
     const { width: W, height: H } = this.scale;
 
+    // hudba na pozadí webu (sdílená napříč stránkami) — v menu hraje / naváže dalším trackem
+    if (window.HubMusic) HubMusic.play();
+
     // mobil: menu na FIT (obnovit z herního ENVELOPu) — vše viditelné, libovolná orientace
     if (PS.isTouch) PS.applyScaleMode(this, Phaser.Scale.FIT);
 
