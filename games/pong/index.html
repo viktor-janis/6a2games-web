@@ -2,7 +2,19 @@
 <html lang="cs">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<!-- Web app (mobil): po „Přidat na plochu" běží bez adresní lišty (na celé obrazovce) -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Pong">
+<link rel="apple-touch-icon" href="../../favicon.png">
 <title>Pong</title>
+<link rel="icon" type="image/png" href="../../favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- Baloo 2 – sjednoceno s Party Survivors (výzva k otočení + hláška „celá obrazovka") -->
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@700;800&display=swap" rel="stylesheet">
 <style>
   html, body {
     margin: 0;
@@ -24,15 +36,32 @@
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: center;
     gap: 12px;
+    width: 100%;
+    height: 100vh;
+    height: 100dvh;
+  }
+  #play-area {
+    flex: 1 1 auto;
+    min-height: 0;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
   }
   canvas {
     background: #000;
     border: 2px solid #fff;
     display: block;
     image-rendering: pixelated;
+    box-sizing: border-box;
+    max-width: 100%;
+    max-height: 100%;
   }
   #hint {
+    flex: 0 0 auto;
     font-size: 14px;
     letter-spacing: 1px;
     opacity: 0.7;
@@ -240,6 +269,144 @@
     transition: border-color 0.15s, color 0.15s;
   }
   #back-to-menu:hover { border-color: #fff; }
+
+  /* ════════════ Mobil / dotyk ════════════ */
+  html, body { overscroll-behavior: none; }
+  html.touch, html.touch body {
+    touch-action: none;
+    -webkit-user-select: none; user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Dotykové prvky jsou na PC skryté; zobrazí je až JS (.visible) / html.touch */
+  #touch-controls,
+  #touch-menu,
+  #touch-menu-btn,
+  #end-touch-actions { display: none; }
+  .settings-touch-only { display: none; }
+  html.touch .settings-touch-only { display: block; }
+  html.touch #settings-back,
+  html.touch #hint { display: none; }
+
+  /* Ovládací pruh pod plochou */
+  html.touch #touch-controls.visible {
+    display: flex;
+    flex: 0 0 auto;
+    width: 100%;
+    height: clamp(64px, 16vh, 120px);
+    align-items: stretch;
+    justify-content: space-between;
+    box-sizing: border-box;
+    padding: 6px 10px;
+    gap: 10px;
+  }
+  html.touch #touch-controls.solo { justify-content: center; }
+  html.touch #touch-controls.solo .tc-right { display: none; }
+  .tc-group { display: flex; gap: 10px; flex: 1 1 0; max-width: 48%; }
+  #touch-controls.solo .tc-left { max-width: 72%; }
+  .tc-btn {
+    flex: 1 1 0;
+    background: #111; color: #fff;
+    border: 2px solid #666; border-radius: 10px;
+    font-size: 32px; line-height: 1;
+    font-family: "Courier New", monospace;
+    touch-action: none; user-select: none; -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .tc-btn:active { background: #fff; color: #000; border-color: #fff; }
+
+  /* Dotykové menu (překryv plochy) */
+  html.touch #touch-menu.visible {
+    display: flex;
+    position: absolute; inset: 0;
+    flex-direction: column; align-items: center; justify-content: center;
+    gap: 16px; padding: 20px; box-sizing: border-box;
+    background: #000;
+  }
+  #tm-title { font-size: clamp(28px, 8vw, 48px); font-weight: bold; letter-spacing: 4px; }
+  #tm-sub {
+    opacity: 0.6; font-size: clamp(12px, 3.2vw, 16px); letter-spacing: 1px;
+    text-transform: uppercase; min-height: 1.2em; text-align: center;
+  }
+  #tm-options {
+    display: flex; flex-direction: column; align-items: center; gap: 12px;
+    width: 100%; max-width: 360px;
+  }
+  #tm-options.grid { flex-direction: row; flex-wrap: wrap; justify-content: center; max-width: 320px; }
+  .tm-btn {
+    background: #111; color: #fff; border: 2px solid #555; border-radius: 8px;
+    font-family: "Courier New", monospace; text-transform: uppercase;
+    letter-spacing: 1px; font-size: clamp(15px, 4.5vw, 20px);
+    padding: 14px 18px; width: 100%; text-align: center;
+  }
+  #tm-options.grid .tm-btn { width: 64px; height: 64px; padding: 0; font-size: 26px; }
+  .tm-btn:active { background: #fff; color: #000; }
+  #tm-back {
+    background: transparent; color: #fff; border: 2px solid #555; border-radius: 8px;
+    font-family: "Courier New", monospace; text-transform: uppercase;
+    letter-spacing: 1px; font-size: clamp(13px, 3.6vw, 16px);
+    padding: 10px 22px; opacity: 0.85;
+  }
+  #tm-back:active { background: #fff; color: #000; }
+
+  /* ≡ tlačítko – zpět do herního menu (jen ve hře) */
+  html.touch #touch-menu-btn {
+    position: fixed; top: 14px; right: 14px; z-index: 80;
+    width: 52px; height: 44px;
+    background: #111; color: #fff; border: 2px solid #666; border-radius: 8px;
+    font-size: 24px; line-height: 1; font-family: "Courier New", monospace;
+  }
+  html.touch #touch-menu-btn:active { background: #fff; color: #000; }
+
+  /* Konec hry – dotyková tlačítka */
+  html.touch #end-touch-actions { display: flex; gap: 14px; justify-content: center; margin-top: 12px; }
+  #end-touch-actions .end-btn {
+    background: #111; color: #fff; border: 2px solid #888; border-radius: 8px;
+    font-family: "Courier New", monospace; text-transform: uppercase;
+    letter-spacing: 1px; font-size: 16px; padding: 14px 22px;
+  }
+  #end-touch-actions .end-btn:active { background: #fff; color: #000; }
+
+  /* Nastavení – dotyková tlačítka */
+  .settings-touch-btn {
+    background: #111; color: #fff; border: 2px solid #666; border-radius: 8px;
+    font-family: "Courier New", monospace; text-transform: uppercase;
+    letter-spacing: 1px; font-size: clamp(14px, 4vw, 18px);
+    padding: 14px 26px; cursor: pointer;
+  }
+  .settings-touch-btn:active { background: #fff; color: #000; }
+  /* na dotyku (často krátký landscape) – zarovnat nahoru a povolit rolování */
+  html.touch #settings-overlay {
+    justify-content: flex-start;
+    gap: 18px;
+    overflow-y: auto;
+    padding: 36px 16px 24px;
+  }
+
+  /* ─── Výzva k otočení – shodné s Party Survivors ─── */
+  #rotate {
+    display: none; position: fixed; inset: 0; z-index: 250;
+    flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+    background: #050010; text-align: center; padding: 24px;
+    font-family: "Baloo 2", "Trebuchet MS", sans-serif; font-weight: 800;
+  }
+  #rotate .icon { font-size: 64px; animation: rotateHint 1.8s ease-in-out infinite; }
+  #rotate .txt { font-size: 20px; letter-spacing: 1px; color: #00ffff;
+    text-shadow: 0 0 10px rgba(0, 255, 255, 0.7); }
+  #rotate .txt2 { font-size: 14px; letter-spacing: 0.5px; color: #ffffff;
+    opacity: 0.85; max-width: 340px; line-height: 1.3; }
+  @keyframes rotateHint { 0%, 100% { transform: rotate(-15deg); } 50% { transform: rotate(75deg); } }
+
+  /* iOS hláška „celá obrazovka" – shodná s Party Survivors */
+  .ios-fs-toast {
+    position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    z-index: 9999;
+    font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif; font-weight: 700;
+    font-size: 26px; color: #ffe600; background: #1a0033;
+    padding: 10px 16px; text-align: center; white-space: pre-line;
+    line-height: 1.3; max-width: calc(100vw - 80px);
+    opacity: 0; pointer-events: none;
+  }
 </style>
 </head>
 <body>
@@ -247,8 +414,34 @@
 <a id="back-to-menu" href="../../index.html" title="Zpět do menu">&larr; Menu</a>
 
 <div id="wrap">
-  <canvas id="game" width="800" height="500"></canvas>
+  <div id="play-area">
+    <canvas id="game" width="800" height="500"></canvas>
+    <div id="touch-menu">
+      <div id="tm-title">PONG</div>
+      <div id="tm-sub"></div>
+      <div id="tm-options"></div>
+      <button id="tm-back">← Zpět</button>
+    </div>
+  </div>
   <div id="hint"></div>
+  <div id="touch-controls">
+    <div class="tc-group tc-left">
+      <button class="tc-btn" data-tc="leftUp">▲</button>
+      <button class="tc-btn" data-tc="leftDown">▼</button>
+    </div>
+    <div class="tc-group tc-right">
+      <button class="tc-btn" data-tc="rightUp">▲</button>
+      <button class="tc-btn" data-tc="rightDown">▼</button>
+    </div>
+  </div>
+</div>
+
+<button id="touch-menu-btn" aria-label="Herní menu">≡</button>
+
+<div id="rotate">
+  <div class="icon">📱</div>
+  <div class="txt">OTOČ TELEFON NA ŠÍŘKU</div>
+  <div class="txt2">PRO FULLSCREEN JDI DO NASTAVENÍ -&gt; CELÁ OBRAZOVKA</div>
 </div>
 
 <div id="end-overlay">
@@ -267,6 +460,10 @@
     </div>
   </div>
   <div id="end-restart"></div>
+  <div id="end-touch-actions">
+    <button class="end-btn" id="end-newgame">Nová hra</button>
+    <button class="end-btn" id="end-menu">Menu</button>
+  </div>
 </div>
 
 <div id="settings-overlay">
@@ -296,7 +493,9 @@
     </div>
   </div>
   <div id="settings-status">Klikni na tlačítko a stiskni novou klávesu</div>
+  <button class="settings-touch-btn settings-touch-only" id="settings-fullscreen">Celá obrazovka</button>
   <div id="settings-back">ESC = zpět do menu</div>
+  <button class="settings-touch-btn settings-touch-only" id="settings-touch-back">← Zpět</button>
 </div>
 
 <script>
@@ -592,13 +791,30 @@
   const soundPaddle  = () => beep(520, 0.06);
   const soundWall    = () => beep(330, 0.05);
   const soundScore   = () => { beep(180, 0.18, 'square', 0.08); setTimeout(() => beep(140, 0.22, 'square', 0.07), 120); };
-  const soundSpeedUp = () => { beep(600, 0.05); setTimeout(() => beep(900, 0.08), 55); };
-  const soundReverse = () => { beep(450, 0.05); setTimeout(() => beep(220, 0.09), 55); };
-  const soundSplit   = () => { beep(380, 0.04); setTimeout(() => beep(320, 0.04), 50); setTimeout(() => beep(260, 0.07), 100); };
-  const soundGrow    = () => { beep(200, 0.06); setTimeout(() => beep(260, 0.06), 70); setTimeout(() => beep(330, 0.09), 140); };
-  const soundShrink  = () => { beep(330, 0.06); setTimeout(() => beep(260, 0.06), 70); setTimeout(() => beep(180, 0.09), 140); };
-  const soundSolid    = () => beep(120, 0.22, 'square', 0.1);
-  const soundRedirect = () => { beep(700, 0.04); setTimeout(() => beep(500, 0.04), 45); setTimeout(() => beep(300, 0.07), 90); };
+
+  // Náhodné hlasové klipy při sebrání mystery boxu (nikdy stejný dvakrát po sobě)
+  const BOX_SOUND_FILES = [
+    '- DÍKY DONE.mp3', '- DONG EXCLUSIVE.mp3', '- KDO SEM KURVA POZVAL DONA.mp3',
+    '- TO CHCE ASI DALŠÍ PIVO.mp3', 'call the fire department.mp3',
+    'Hergot, tak to je extrém.mp3', 'human rights.mp3', 'KillBill.mp3',
+  ];
+  const boxSounds = BOX_SOUND_FILES.map(f => {
+    const a = new Audio('sounds/' + encodeURIComponent(f));
+    a.preload = 'auto';
+    return a;
+  });
+  let lastBoxSoundIdx = -1;
+  function playRandomBoxSound() {
+    if (boxSounds.length === 0) return;
+    let idx = Math.floor(Math.random() * boxSounds.length);
+    if (boxSounds.length > 1 && idx === lastBoxSoundIdx) {
+      idx = (idx + 1 + Math.floor(Math.random() * (boxSounds.length - 1))) % boxSounds.length;
+    }
+    lastBoxSoundIdx = idx;
+    const a = boxSounds[idx];
+    try { a.currentTime = 0; } catch (e) {}
+    a.play().catch(() => {});
+  }
 
   // ─── Vstupy ───────────────────────────────────────────────────────────────
   const BLOCKED_BINDING_KEYS = ['Escape', ' ', 'Shift', 'Control', 'Alt', 'Meta', 'CapsLock', 'Tab'];
@@ -650,16 +866,16 @@
     if (state === STATE.MENU) {
       ensureAudio();
       if (menuPhase === 'mode') {
-        if (e.key === '1') { gameMode = MODE.SOLO;  menuPhase = 'difficulty'; updateHint(); }
-        if (e.key === '2') { gameMode = MODE.MULTI; menuPhase = 'score';      updateHint(); }
-        if (e.key === '3') { showSettings(); }
+        if (e.key === '1') chooseSolo();
+        if (e.key === '2') chooseMulti();
+        if (e.key === '3') showSettings();
       } else if (menuPhase === 'difficulty') {
-        if (e.key === '1') { setDifficulty('easy');   menuPhase = 'score'; updateHint(); }
-        if (e.key === '2') { setDifficulty('medium'); menuPhase = 'score'; updateHint(); }
-        if (e.key === '3') { setDifficulty('hard');   menuPhase = 'score'; updateHint(); }
+        if (e.key === '1') chooseDifficulty('easy');
+        if (e.key === '2') chooseDifficulty('medium');
+        if (e.key === '3') chooseDifficulty('hard');
       } else if (menuPhase === 'score') {
         const n = parseInt(e.key);
-        if (n >= 1 && n <= 9) { winScore = n; startNewMatch(); }
+        if (n >= 1 && n <= 9) chooseScore(n);
       }
     }
   });
@@ -697,6 +913,7 @@
     pendingDirX   = Math.random() < 0.5 ? -1 : 1;
     lastBoxEffect = null;
     initBall();
+    configureTouchControls();
     state = STATE.READY;
     updateHint();
   }
@@ -892,6 +1109,9 @@
     const cx = box.x + BOX_SIZE / 2;
     const cy = box.y + BOX_SIZE / 2;
 
+    // Náhodný hlasový klip při sebrání boxu (jednou na box, i u PEVNÉ ZDI)
+    playRandomBoxSound();
+
     // Pool efektů – Obrat! nelze dvakrát za sebou
     const pool = ['speedup', 'split', 'grow', 'shrink', 'solid', 'redirect'];
     if (lastBoxEffect !== 'reverse') pool.push('reverse');
@@ -904,7 +1124,6 @@
       ball.vx = Math.cos(a) * ball.speed;
       ball.vy = Math.sin(a) * ball.speed;
       addTextEffect('RYCHLEJI!', cx, cy, '#FFD700');
-      soundSpeedUp();
       return true;
 
     } else if (choice === 'reverse') {
@@ -912,7 +1131,6 @@
       ball.vx = -ball.vx * 0.7;
       ball.vy =  ball.vy * 0.7;
       addTextEffect('OBRAT!', cx, cy, '#FF6666');
-      soundReverse();
       return true;
 
     } else if (choice === 'split') {
@@ -926,7 +1144,6 @@
           s, true));
       }
       addTextEffect('ROZDVOJENÍ!', cx, cy, '#7DF9FF');
-      soundSplit();
       return true;
 
     } else if (choice === 'grow') {
@@ -937,7 +1154,6 @@
       paddle.growExpiry = performance.now() + 20000;
       const label = lastHitBy === 'right' ? 'VĚTŠÍ PLOŠINA →' : '← VĚTŠÍ PLOŠINA';
       addTextEffect(label, cx, cy, '#88FF88');
-      soundGrow();
       return true;
 
     } else if (choice === 'shrink') {
@@ -948,7 +1164,6 @@
       paddle.growExpiry = performance.now() + 10000;
       const label = lastHitBy === 'right' ? 'MENŠÍ PLOŠINA →' : '← MENŠÍ PLOŠINA';
       addTextEffect(label, cx, cy, '#FF8800');
-      soundShrink();
       return true;
 
     } else if (choice === 'redirect') {
@@ -957,7 +1172,6 @@
       ball.vx = Math.cos(angle) * ball.speed * dir;
       ball.vy = Math.sin(angle) * ball.speed;
       addTextEffect('ZMĚNA SMĚRU!', cx, cy, '#CC88FF');
-      soundRedirect();
       return true;
 
     } else { // solid
@@ -968,7 +1182,6 @@
         ball.y = ball.vy > 0 ? box.y + BOX_SIZE : box.y - BALL_SIZE;
       }
       addTextEffect('PEVNÁ ZEĎ!', cx, cy, '#CCCCCC');
-      soundSolid();
       return false;
     }
   }
@@ -1172,7 +1385,7 @@
         drawBoxes(now);
         drawTextEffects();
       } else {
-        drawMessage(['STISKNI MEZERNÍK PRO START']);
+        drawMessage([isTouch ? 'ŤUKNI PRO START' : 'STISKNI MEZERNÍK PRO START']);
         // Blikající šipka ukazující směr servu
         const arrow = pendingDirX > 0 ? '→' : '←';
         const blink = 0.45 + 0.55 * Math.abs(Math.sin(now / 380));
@@ -1190,7 +1403,9 @@
 
   // ─── Hlavní smyčka ────────────────────────────────────────────────────────
   function loop(now) {
-    if (state === STATE.PLAYING) {
+    updateRotate();
+    syncMobileUI();
+    if (state === STATE.PLAYING && !rotateActive) {
       updatePlayer1();
       if (gameMode === MODE.MULTI) updatePlayer2();
       else                         updateAI();
@@ -1201,13 +1416,183 @@
       checkPaddleGrowExpiry(now);
       textEffects.forEach(e => e.life--);
       textEffects = textEffects.filter(e => e.life > 0);
-    } else if (state === STATE.READY) {
+    } else if (state === STATE.READY && !rotateActive) {
       updatePlayer1();
       if (gameMode === MODE.MULTI) updatePlayer2();
     }
     draw(now);
     requestAnimationFrame(loop);
   }
+
+  // ─── Mobil / dotykové ovládání ──────────────────────────────────────────────
+  const isTouch = (typeof navigator !== 'undefined') &&
+    (navigator.maxTouchPoints > 0 || 'ontouchstart' in window);
+  if (isTouch) document.documentElement.classList.add('touch');
+
+  const playArea      = document.getElementById('play-area');
+  const touchControls = document.getElementById('touch-controls');
+  const touchMenu     = document.getElementById('touch-menu');
+  const tmSub         = document.getElementById('tm-sub');
+  const tmOptions     = document.getElementById('tm-options');
+  const tmBack        = document.getElementById('tm-back');
+  const touchMenuBtn  = document.getElementById('touch-menu-btn');
+
+  // Menu akce – sdílené klávesnicí i dotykem
+  function chooseSolo()  { gameMode = MODE.SOLO;  menuPhase = 'difficulty'; updateHint(); }
+  function chooseMulti() { gameMode = MODE.MULTI; menuPhase = 'score';      updateHint(); }
+  function chooseDifficulty(level) { setDifficulty(level); menuPhase = 'score'; updateHint(); }
+  function chooseScore(n) { winScore = n; startNewMatch(); }
+  function menuBack() {
+    if (menuPhase === 'settings') { hideSettings(); return; }
+    if      (menuPhase === 'score')      menuPhase = (gameMode === MODE.SOLO) ? 'difficulty' : 'mode';
+    else if (menuPhase === 'difficulty') menuPhase = 'mode';
+    else { window.location.href = '../../index.html'; return; }
+    updateHint();
+  }
+
+  // Vykreslení dotykového menu podle aktuální fáze
+  function buildTouchMenu() {
+    tmOptions.innerHTML = '';
+    tmOptions.classList.remove('grid');
+    let sub = '', opts = [];
+    if (menuPhase === 'mode') {
+      sub = 'Vyber režim hry';
+      opts = [['Proti počítači', chooseSolo], ['Multiplayer', chooseMulti], ['Nastavení', showSettings]];
+    } else if (menuPhase === 'difficulty') {
+      sub = 'Vyber obtížnost';
+      opts = [['Easy', () => chooseDifficulty('easy')],
+              ['Medium', () => chooseDifficulty('medium')],
+              ['Hard', () => chooseDifficulty('hard')]];
+    } else if (menuPhase === 'score') {
+      sub = 'Počet výherních bodů';
+      tmOptions.classList.add('grid');
+      for (let i = 1; i <= 9; i++) opts.push([String(i), () => chooseScore(i)]);
+    }
+    tmSub.textContent = sub;
+    opts.forEach(([label, fn]) => {
+      const b = document.createElement('button');
+      b.className = 'tm-btn';
+      b.textContent = label;
+      b.addEventListener('click', () => { ensureAudio(); fn(); });
+      tmOptions.appendChild(b);
+    });
+  }
+  tmBack.addEventListener('click', () => { ensureAudio(); menuBack(); });
+
+  // Dotykové šipky → přepínají stávající keys flagy (multitouch přes pointer events).
+  // SOLO: jen levá skupina (ovládá levou pálku přes p2 klávesy). MULTI: levá=p1, pravá=p2.
+  const touchBtnEls = Array.from(document.querySelectorAll('#touch-controls .tc-btn'));
+  function setBtnKey(tc, key) {
+    const el = touchBtnEls.find(b => b.dataset.tc === tc);
+    if (el) el._key = key;
+  }
+  function configureTouchControls() {
+    if (gameMode === MODE.SOLO) {
+      touchControls.classList.add('solo');
+      setBtnKey('leftUp', 'p2Up'); setBtnKey('leftDown', 'p2Down');
+      setBtnKey('rightUp', null);  setBtnKey('rightDown', null);
+    } else {
+      touchControls.classList.remove('solo');
+      setBtnKey('leftUp', 'p1Up');  setBtnKey('leftDown', 'p1Down');
+      setBtnKey('rightUp', 'p2Up'); setBtnKey('rightDown', 'p2Down');
+    }
+  }
+  touchBtnEls.forEach(btn => {
+    btn.addEventListener('pointerdown', e => {
+      e.preventDefault(); ensureAudio();
+      if (btn._key) keys[btn._key] = true;
+      try { btn.setPointerCapture(e.pointerId); } catch (_) {}
+    });
+    const release = e => { e.preventDefault(); if (btn._key) keys[btn._key] = false; };
+    btn.addEventListener('pointerup', release);
+    btn.addEventListener('pointercancel', release);
+    btn.addEventListener('contextmenu', e => e.preventDefault());
+  });
+
+  // Servu klepnutím na plochu; ≡ tlačítko = zpět do herního menu
+  if (isTouch) {
+    playArea.addEventListener('pointerdown', () => {
+      if (state === STATE.READY) { ensureAudio(); startPoint(); }
+    });
+  }
+  touchMenuBtn.addEventListener('click', () => {
+    ensureAudio();
+    if (state === STATE.GAMEOVER) hideEndScreen();
+    goToMenu();
+  });
+
+  // Konec hry – dotyková tlačítka
+  document.getElementById('end-newgame').addEventListener('click', () => { ensureAudio(); hideEndScreen(); startNewMatch(); });
+  document.getElementById('end-menu').addEventListener('click',    () => { ensureAudio(); hideEndScreen(); goToMenu(); });
+
+  // Vynulování pohybu při ztrátě fokusu / skrytí záložky (pojistka proti zaseknuté pálce)
+  function clearMoveKeys() { keys.p1Up = keys.p1Down = keys.p2Up = keys.p2Down = false; }
+  window.addEventListener('blur', clearMoveKeys);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) clearMoveKeys(); });
+
+  // Odemčení audia po prvním dotyku
+  window.addEventListener('pointerdown', () => ensureAudio(), { once: true });
+
+  // Synchronizace dotykového UI s herním stavem (volá se z loop, levné)
+  let _mobileSig = '';
+  function syncMobileUI() {
+    if (!isTouch) return;
+    const inGame = (state === STATE.READY || state === STATE.PLAYING);
+    touchMenuBtn.style.display = inGame ? 'block' : 'none';
+    touchControls.classList.toggle('visible', inGame);
+    const showMenu = (state === STATE.MENU && menuPhase !== 'settings');
+    const sig = state + '|' + menuPhase + '|' + gameMode;
+    if (sig !== _mobileSig) { _mobileSig = sig; if (showMenu) buildTouchMenu(); }
+    touchMenu.classList.toggle('visible', showMenu);
+  }
+
+  // Výzva k otočení na šířku (shodná s Party Survivors) + pauza hry v portrétu
+  let rotateActive = false;
+  function updateRotate() {
+    const r = document.getElementById('rotate');
+    if (!r) return;
+    const portrait = window.matchMedia('(orientation: portrait)').matches;
+    rotateActive = isTouch && portrait && (state === STATE.READY || state === STATE.PLAYING);
+    r.style.display = rotateActive ? 'flex' : 'none';
+  }
+  window.addEventListener('orientationchange', () => setTimeout(updateRotate, 250));
+  window.addEventListener('resize', updateRotate);
+
+  // Celá obrazovka (dotyk). Android/desktop → Fullscreen API + zámek landscape;
+  // iPhone Safari (bez Fullscreen API) → návod „Přidat na plochu" (styl Party Survivors).
+  function fullscreenAvailable() {
+    return !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
+  }
+  function toggleFullscreen() {
+    const el = document.documentElement;
+    const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+    try {
+      if (fsEl) {
+        (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+      } else {
+        (el.requestFullscreen || el.webkitRequestFullscreen).call(el);
+        if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(() => {});
+      }
+    } catch (e) { /* nepodporováno */ }
+  }
+  function showIosFullscreenHint() {
+    const t = document.createElement('div');
+    t.className = 'ios-fs-toast';
+    t.textContent = 'CELÁ OBRAZOVKA NA iPHONU:\nV Safari ťukni dole na SDÍLET,\npak „PŘIDAT NA PLOCHU" a spusť hru\nz nové ikony na ploše.';
+    document.body.appendChild(t);
+    t.style.transition = 'opacity 150ms';
+    requestAnimationFrame(() => { t.style.opacity = '1'; });
+    setTimeout(() => {
+      t.style.transition = 'opacity 400ms';
+      t.style.opacity = '0';
+      setTimeout(() => t.remove(), 450);
+    }, 150 + 6500);
+  }
+  document.getElementById('settings-fullscreen').addEventListener('click', () => {
+    if (fullscreenAvailable()) toggleFullscreen();
+    else showIosFullscreenHint();
+  });
+  document.getElementById('settings-touch-back').addEventListener('click', () => { ensureAudio(); hideSettings(); });
 
   // ─── Start ────────────────────────────────────────────────────────────────
   initBall();
