@@ -10,9 +10,6 @@ games/party-survivors/logika.xlsx
 # Uživatelova interní složka s pracovními materiály — jen lokálně, ne na GitHub
 games/party-survivors/.gitignore/
 
-# Unused audio assets
-games/pong/sounds/
-
 # Party Survivors — hudební mastery zůstávají jen lokálně; do hry/deploye jdou
 # jen komprimované MP3 v music/compressed/ (generuje tools/build-music.js).
 games/party-survivors/music/*
