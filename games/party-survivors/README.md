@@ -1,5 +1,7 @@
 # Party Survivors
 
+> **Toto README je kanonický zdroj pro vnitřek hry** (architektura, balanc, gotchas). Kořenový [`CLAUDE.md`](../../CLAUDE.md) jen odkazuje a drží nejnutnější tripwiry — měníš-li tu něco zásadního (struktura souborů, build skripty, klíčové konvence), zkontroluj, jestli to nevyžaduje úpravu i tam.
+
 Klon hry **Vampire Survivors** v párty stylu (temná klubová neonová atmosféra) pro web **6&2 Games**. Hra běží **výhradně v prohlížeči** — nemá žádný build krok, žádné `package.json`, žádné `node_modules`. Zpřístupňuje se pouze přes webovou stránku `partysurvivors.html` (nalinkováno z homepage webu, `index.html`).
 
 ## O hře (logika Vampire Survivors)
@@ -7,11 +9,11 @@ Klon hry **Vampire Survivors** v párty stylu (temná klubová neonová atmosfé
 - **Cíl: přežít co nejdéle.** Jediný výsledek runu je čas přežití; rekord se ukládá do `localStorage` **se jménem hráče** (zadává se po STARTu, pamatuje se a předvyplňuje) a zobrazuje se v menu i na Game Over.
 - Hráč ovládá **pouze pohyb** (WASD/šipky). Útoky se spouštějí **automaticky** na cooldown — míří na nejbližšího nepřítele, případně do směru pohybu.
 - Nepřátelé se valí v houstnoucích vlnách ze všech stran, při kontaktu zraňují hráče. Z mrtvol padají **XP gemy**, jejich sběrem (magnet) hráč leveluje.
-- **Level-up** pozastaví hru a nabídne 3 karty: nový útok (max 6 útoků) / vylepšení vlastněného útoku (+25 % DMG, max lvl 8) / **perk útoku** (`PS.WEAPON_PERKS` — druhá osa: +projektily, +odrazy, +cíle, +zóny…, každý s malým stropem) / pasivka (max 5 úrovní). Výběr je **vážený jako ve VS**: vylepšení už vlastněných útoků mají vyšší pravděpodobnost výskytu — v prvních levelech výrazně (rozvíjení startovního útoku), s rostoucím levelem se váhy vyrovnávají (`PS.BALANCE.weaponUpWeight`). XP křivka je **kvadratická** (`PS.BALANCE.xpForLevel`): každý další level vyžaduje o ~8 XP větší přírůstek než předchozí (14, 22, 30, …) — tempo levelování klesá celou hru a vyvažuje rostoucí přísun gemů z hustšího spawnu; kompenzováno mírnějšími HP/DMG nepřátel.
-- Obtížnost roste **nekonečnou progresí tierů** (nový tier každých ~85 s) a pravidelnými **bossy**. Spawn je **nerovnoměrný**: slabší stálý proud + krátké vlnky + občas velká telegrafovaná **horda** („VALÍ SE DAV!"). Balanc cílí na lehčí start, **obtížné až ~10. minutě**, dobrý hráč zvládne **15-20 min**; tlak (počet × HP nepřátel) ale roste rychleji než DPS hráče → smrt je nakonec nevyhnutelná (žádné nesmrtelné kombo, jako VS). Křivka se ladí v `tools/spawn-curve.js`.
+- **Level-up** pozastaví hru a nabídne 3 karty: nový útok (max 6 útoků) / vylepšení vlastněného útoku (+25 % DMG, max lvl 8) / **perk útoku** (`PS.WEAPON_PERKS` — druhá osa: +projektily, +odrazy, +cíle, +zóny…, každý s malým stropem) / pasivka (max 5 úrovní). Výběr je **vážený jako ve VS**: vylepšení už vlastněných útoků mají vyšší pravděpodobnost výskytu — v prvních levelech výrazně (rozvíjení startovního útoku), s rostoucím levelem se váhy vyrovnávají (`PS.BALANCE.weaponUpWeight`). XP křivka je **kvadratická** (`PS.BALANCE.xpForLevel` = `10 + 13(n−1) + 5(n−1)²`): každý další level vyžaduje o ~10 XP větší přírůstek než předchozí (přírůstky 18, 28, 38, …) — tempo levelování klesá celou hru a vyvažuje rostoucí přísun gemů z hustšího spawnu; kompenzováno mírnějšími HP/DMG nepřátel.
+- Obtížnost roste **nekonečnou progresí tierů** (nový tier každých ~80 s, `PS.BALANCE.tierSeconds`) a pravidelnými **bossy**. Spawn je **nerovnoměrný**: slabší stálý proud + krátké vlnky + občas velká telegrafovaná **horda** („VALÍ SE DAV!"). Balanc cílí na to, aby se hráč snažil **od první minuty**; **většina runů končí ~13–18 min** (18–23 velmi dobré, 23+ insane); tlak (počet × HP nepřátel) ale roste rychleji než DPS hráče → smrt je nakonec nevyhnutelná (žádné nesmrtelné kombo, jako VS). Křivka se ladí v `tools/spawn-curve.js`.
 - **Runda panclů** (à la Treasure ve VS): vzácný drop — průměrně **1 za ~5 minut** (`rundaInterval*`). Spawne se za okrajem obrazovky a **zlatá šipka na okraji HUD** vede hrdinu k ní; zůstává na mapě, dokud ji nesebere (max 1 zároveň). Obsahuje **2–4 náhodné klíče** (bez duplicit) + **1–3 stálé upgrady** (vylepšení vlastněných útoků / pasivky — žádné nové útoky, respektuje max levely). Sebrání pauzne hru a `RundaScene` postupně odhalí odměny.
 - **Boss aréna („ring")**: při příchodu bosse se běžní nepřátelé seběhnou na kruh kolem hrdiny a utvoří **neprostupnou, nezranitelnou zeď** — souboj je 1v1 (jen vyvolanci Haadese bojují uvnitř). Formace probíhá **vždy zvenku** (kdo je uvnitř, radiálně ustoupí na okraj; ostatní obíhají po obvodu — nikdy neprochází středem) s krátkým sprintem (`ringFormUntil`), aby se ring rychle uzavřel. Hrdina ring nemůže prorazit (geometrický clamp), na jeho okraji dostává normální kontaktní damage. Po dobu souboje **stojí spawn vln, powerupů, časomíra tierů i časomíra přežití (skóre)** — HUD u zmrazeného času ukazuje „PROBÍHÁ BOSS FIGHT"; smrtí bosse se ring rozpustí, dav pokračuje v útoku a skóre zase naskočí.
-- Průběh runu: výběr hrdiny → kiting hord + sběr XP → level-upy a build → bossové každých 5 tierů → smrt → Game Over s časem a rekordem.
+- Průběh runu: výběr hrdiny → kiting hord + sběr XP → level-upy a build → bossové na **časovém plánu** (první ~2:30, pak à ~4:30) → smrt → Game Over s časem a rekordem.
 
 ## Technologie
 
@@ -53,7 +55,7 @@ party-survivors/
     music.js               PS.Music — hudba na pozadí (jen ve hře, sekvenčně dle abecedy, crossfade)
     playlist.js            ⚙ AUTOGEN seznam hudby (PS.MUSIC) — generuje tools/build-music.js
     systems/
-      weapons.js           PS.Weapon — 9 archetypů útoků (cone/beam/zone/lob/homing/sweep/aura/orbit/slap)
+      weapons.js           PS.Weapon — 9 archetypů útoků (cone/beam/zone/lob/bounce/sweep/ricochet/orbit/slap)
       spawner.js           PS.Spawner — director: tiery, nerovnoměrný spawn (proud+vlnky+hordy), bossové
     scenes/
       BootScene.js         generování všech textur → Menu
@@ -88,14 +90,14 @@ party-survivors/
 - **9 archetypů útoků** — každý má unikátní profil ve stylu VS (viz komentář u `PS.ATTACKS`):
   - **míření** (`aim`): na nejbližšího nepřítele (chcaní, vajgly, list; lahvác na náhodného z několika nejbližších) / kam je hrdina otočený (blití, pivo) / pevný vzor kolem hrdiny (tagování, dým, panáky)
   - **DMG/CD profil**: nuke s dlouhým CD (lahvác 34/3,2 s) až rychlopalba (vajgly 8/0,5 s); každý útok má jiný base DMG
-  - **multi-target**: pierce (chcaní), odrazy mezi nepřáteli (vajgly), neomezené AoE (blití, pivo, dým), limit cílů (list)
+  - **multi-target**: pierce (chcaní), odrazy mezi nepřáteli (vajgly), neomezené AoE (blití, pivo), ricochet střela probodávající nepřátele (dým), limit cílů (list)
   - **control**: knockback síly 0–4 (bossové odolávají), stun (list, lahvác), slow (vajgly, dým, kaluže), DoT (blití)
-- **7 pasivních upgradů** (max HP, DMG, CD, rychlost, plocha, magnet, regen).
+- **12 pasivních upgradů** (`PS.UPGRADES`): max HP, DMG, CD, rychlost, plocha, magnet, regen + krusta (armor), beef (dmg na bosse), ruleta (krit), šmelina (XP gain), mrchozrout (heal za kill).
 - **15 perků útoků** (`PS.WEAPON_PERKS`) — každý útok má 1–2 perky zaměřené na počty (další panák/lahváč/odraz/cíl/zóna, dvojité útoky, širší úhly, rychlejší tiky); efekty čte `PS.Weapon` přes `this.perk(id)`, stav drží `weapon.perkLevels`.
 - **7 powerupů („klíčky")** vzácně na mapě: heal, freeze, speed, damage, magnet, nesmrtelnost, čistka.
 - **Runda panclů** — vzácný treasure (~1/5 min): 2–4 klíče + 1–3 stálé upgrady najednou, navigace zlatou šipkou v HUD (`GameScene.spawnRunda`, `RundaScene`, šipka v `HUDScene`).
 - **5 typů nepřátel** v nekonečné tier progresi: tier *n* → typ `(n−1) % 5`, level `⌊(n−1)/5⌋+1` (gufrau → kravaťáci → pikaři → rodiče → policisté → gufrau lvl 2 → …). Každý typ má **vlastní rychlost** (`speedMult` v `PS.ENEMIES`): pikaři 1,25× (nejrychlejší) > policisté 1,1× > gufrau 1,0× > kravaťáci 0,9× > rodiče 0,85×. Strop ~101 px/s je hluboko pod rychlostí hrdiny (126 px/s) — **hrdina musí vždy zůstat nejrychlejší**.
-- **5 bossů** s vlastními mechanikami (projektily, pushwave, melee swing, summoner, hypnóza), spawn při tieru `síla − 2`, cyklus donekonečna (+25 síly za cyklus). Každý boss fight probíhá v **aréně z ringu nepřátel** (`GameScene.startBossFight`, poloměr `PS.BALANCE.arenaRadius`); nepřátelé ve zdi mají flag `ringWall` — jsou nezranitelní a ignorují je všechny prostorové dotazy zbraní.
+- **5 bossů** s vlastními mechanikami (projektily, pushwave, melee swing, summoner, hypnóza), spawn na **časovém plánu** (`PS.BALANCE.bossFirst` ~2:30, pak `bossInterval` ~4:30), n-tý boss má sílu 5n, cyklus skinů donekonečna. Každý boss fight probíhá v **aréně z ringu nepřátel** (`GameScene.startBossFight`, poloměr `PS.BALANCE.arenaRadius`); nepřátelé ve zdi mají flag `ringWall` — jsou nezranitelní a ignorují je všechny prostorové dotazy zbraní.
 
 ## Ovládání
 

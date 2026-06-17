@@ -1,5 +1,7 @@
 # Claude Code local settings
 .claude/
+# Lokální negitované poznámky pro Claude (soukromá/účtová/provozní fakta)
+CLAUDE.local.md
 
 # Internal dev/work files
 games/party-survivors/claude_code_prompt.txt

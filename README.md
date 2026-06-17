@@ -25,3 +25,7 @@ Webové arkádové hry s retro CRT estetikou. Každá hra je samostatná a běž
 1. Vytvořit složku `games/<nazev>/`
 2. Implementovat hru — jednodušší hry v jednom `index.html`, komplexnější mohou mít podsložky pro assety a JS soubory
 3. Přidat odkaz do `index.html` (hlavní menu)
+
+## Vývoj s Claude Code
+
+V kořeni je [`CLAUDE.md`](CLAUDE.md) — operační příručka pro AI agenta (příkazy, deploy, cross-file vazby) a rozcestník po všech README v repu. **Toto README zůstává kanonickým zdrojem pro vizi a zásady vývoje.** Měníš-li je zásadně, zkontroluj, jestli změna nepatří i do `CLAUDE.md` (viz tam oddíl „Zdroje pravdy").

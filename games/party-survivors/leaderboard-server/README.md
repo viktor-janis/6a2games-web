@@ -1,5 +1,7 @@
 # Party Survivors — globální žebříček (Cloudflare Worker + D1)
 
+> **Kanonický zdroj pro nasazení backendu.** Kořenový [`CLAUDE.md`](../../../CLAUDE.md) odkazuje sem; měníš-li deploy postup nebo bindings, zkontroluj soulad i tam.
+
 Malé backendové API pro online TOP 10 časů. Běží zdarma na Cloudflare Workers,
 data v Cloudflare D1 (SQLite). Frontend (hra na GitHub Pages) volá tři endpointy:
 
