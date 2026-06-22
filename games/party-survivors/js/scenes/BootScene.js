@@ -12,7 +12,6 @@ window.BootScene = class BootScene extends Phaser.Scene {
     this.makeGlow();
     this.makeSmoke();
     this.makeVignette();
-    this.makeDrop();
     this.makeHeroTextures();
     this.makeEnemyTextures();
     this.makeBossTextures();
@@ -783,23 +782,6 @@ window.BootScene = class BootScene extends Phaser.Scene {
       ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.fillRect(2, 2, 1.4, 7); // lesk
     });
 
-    // dým — obláček dýmu (měkké překryté šedavé chuchvalce, žádná střela)
-    this.canvasTex('smoke', 32, 32, (ctx) => {
-      const puff = (x, y, r, a) => {
-        const g = ctx.createRadialGradient(x, y, 0, x, y, r);
-        g.addColorStop(0, `rgba(214,226,234,${a})`);
-        g.addColorStop(0.55, `rgba(176,194,206,${a * 0.6})`);
-        g.addColorStop(1, 'rgba(150,170,184,0)');
-        ctx.fillStyle = g;
-        ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
-      };
-      puff(16, 16, 13, 0.85); // jádro
-      puff(9, 12, 8, 0.7);    // chuchvalce kolem — nepravidelný tvar
-      puff(23, 13, 7, 0.65);
-      puff(13, 23, 7, 0.6);
-      puff(22, 21, 6, 0.55);
-    });
-
     // panák — štamprle s chlastem
     this.canvasTex('panak', 12, 12, (ctx) => {
       ctx.beginPath(); ctx.moveTo(1, 0); ctx.lineTo(11, 0); ctx.lineTo(8.5, 11); ctx.lineTo(3.5, 11); ctx.closePath();
@@ -887,12 +869,5 @@ window.BootScene = class BootScene extends Phaser.Scene {
     });
   }
 
-  // kapka — tekuté particles (blití/chcaní/pivo), tintuje se
-  makeDrop() {
-    this.canvasTex('drop', 10, 12, (ctx) => {
-      ctx.fillStyle = '#ffffff';
-      ctx.beginPath(); ctx.moveTo(5, 0); ctx.quadraticCurveTo(10, 7, 5, 12); ctx.quadraticCurveTo(0, 7, 5, 0); ctx.fill();
-    });
-  }
 };
 PS.scenes.push(window.BootScene);
