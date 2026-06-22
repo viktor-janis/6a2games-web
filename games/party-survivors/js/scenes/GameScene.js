@@ -309,6 +309,7 @@ window.GameScene = class GameScene extends Phaser.Scene {
       dmg *= this.stats.critMult;
       crit = true;
     }
+    if (!Number.isFinite(dmg)) return; // pojistka: NaN/Infinity by zaneslo HP do NaN (nepřítel by „nešel zabít")
     enemy.hp -= dmg;
     if (!opts.noFlash) {
       enemy.setTintFill(0xffffff);

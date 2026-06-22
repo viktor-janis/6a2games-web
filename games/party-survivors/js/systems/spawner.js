@@ -218,7 +218,7 @@ PS.Spawner = class Spawner {
     boss.slowUntil = 0; boss.slowPct = 0;
     boss.dotUntil = 0; boss.dotDps = 0;
     boss.kbUntil = 0; boss.stunUntil = 0;
-    boss.lastOrbHit = 0;
+    boss.lastOrbHit = -1e9; // hluboká minulost (stejně jako běžní nepřátelé) — první zásah panáků hned
     boss.ringWall = false;
 
     scene.bossFight.boss = boss; // teprve teď je v aréně skutečný boss
