@@ -11,15 +11,28 @@ PS.LB = {
   API: 'https://party-survivors-lb.viktor-janis.workers.dev',
 
   _token: null,
+  TIMEOUT: 10000, // ms — strop čekání na Worker (jinak by „NAČÍTÁM…" mohlo viset donekonečna)
 
   enabled() { return !!this.API && this.API.indexOf('PLACEHOLDER') === -1; },
+
+  // fetch s časovým limitem — po vypršení se AbortError chytí jako běžná chyba
+  // (offline-safe: volající už mají try/catch). Velkorysý timeout, ať neselže pomalá síť.
+  async _fetch(url, opts) {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), this.TIMEOUT);
+    try {
+      return await fetch(url, Object.assign({ signal: ctrl.signal }, opts));
+    } finally {
+      clearTimeout(t);
+    }
+  },
 
   // Začátek hry → vyžádat podepsaný session token (anti-cheat).
   async startRun() {
     this._token = null;
     if (!this.enabled()) return;
     try {
-      const res = await fetch(this.API + '/start', { method: 'POST' });
+      const res = await this._fetch(this.API + '/start', { method: 'POST' });
       if (res.ok) { const d = await res.json(); this._token = d.token || null; }
     } catch (e) { /* offline — žebříček se přeskočí */ }
   },
@@ -30,7 +43,7 @@ PS.LB = {
     const body = { time: opts.time, name: opts.name, heroId: opts.heroId, token: this._token };
     this._token = null; // token je jednorázový
     try {
-      const res = await fetch(this.API + '/score', {
+      const res = await this._fetch(this.API + '/score', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -45,7 +58,7 @@ PS.LB = {
   async fetchTop() {
     if (!this.enabled()) return null;
     try {
-      const res = await fetch(this.API + '/leaderboard');
+      const res = await this._fetch(this.API + '/leaderboard');
       if (!res.ok) return null;
       const d = await res.json();
       return d.scores || [];
