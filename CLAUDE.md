@@ -31,6 +31,7 @@ Repo má kvalitní README; aby se s tímhle souborem nerozjely, má každá obla
 - **Žádný bundler ani ES moduly.** Čisté HTML/CSS/JS přes `<script>` tagy, musí jet i z `file://`. Phaser 3 jen přes CDN (jsdelivr).
 - **Žádné binární assety v repu** (obrázky/zvuky): grafika se kreslí proceduálně do Canvas textur, SFX se syntetizují přes WebAudio. Výjimka jsou **komprimované MP3** hudby (mastery zůstávají lokálně, `.gitignore`).
 - **Žádná hudba na pozadí webu.** Úvodní rozcestník (`index.html`) má jen jemný **syntetizovaný ambient zvuk** (`menu-ambient.js`, WebAudio, ne hudba — tlumené „bzučení", zesílí při hoveru na položku menu, spustí se po 1. gestu). Jediná hudba je Party Survivors in-game (`js/music.js` = `PS.Music`, jen v `GameScene`); Pong má vlastní syntetizované SFX. (Dřívější sdílená hub hudba menu byla zrušena.)
+- **Úvodní „attract" překryv (`#enter-overlay` v `index.html`).** Kvůli autoplay policy (zvuk až po 1. gestu) by první klik jinak padl rovnou na položku menu a odvedl do hry → ambient by se jen „probzukl". Překryv „KLIKNI PRO START" zachytí první gesto (nepřesměruje), takže ambient pak hraje jako trvalá kulisa. Spuštění zvuku zařídí `menu-ambient.js` (jeho gesture-listener); overlay jen sám sebe schová a sundá `inert` z `<nav>` (do té doby brání prokliku/Tabu na skryté odkazy). Texty jen ASCII (Press Start 2P nemá české diakritiky). **Nemazat** — bez něj se vrací původní problém.
 - **Mobil na šířku je first-class** (dotyk, fullscreen, výzva k otočení). Nový UI prvek řeš i pro touch.
 
 ## Lokální spuštění

@@ -186,11 +186,53 @@
     .menu-item:active {
       transform: scale(0.98);
     }
+
+    /* Úvodní „attract" překryv — zachytí první gesto (klik/klávesa/dotyk), aby se
+       odemkl ambient zvuk menu. První klik tak nepadne rovnou na položku menu
+       (ta by hned odvedla do hry a zvuk by se jen „probzukl"). z-index je pod
+       scanlines (100) i flickerem (101), aby CRT efekt platil i přes překryv. */
+    #enter-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background:
+        radial-gradient(ellipse at center, #1a0033 0%, #050010 70%, #000 100%);
+      cursor: pointer;
+      transition: opacity 0.3s ease;
+    }
+
+    #enter-overlay .prompt {
+      /* texty jen ASCII — Press Start 2P nemá české diakritiky (latin subset) */
+      font-size: clamp(0.9rem, 2.4vw, 1.6rem);
+      letter-spacing: 0.14em;
+      text-align: center;
+      color: #00ffff;                 /* azurová = „klikací", stejně jako menu */
+      text-shadow: 0 0 8px #00ffff;   /* stejná intenzita jako .menu-item */
+      animation: pressBlink 1s steps(1) infinite;
+    }
+
+    #enter-overlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    @keyframes pressBlink {
+      50% { opacity: 0; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      #enter-overlay { transition: none; }
+      #enter-overlay .prompt { animation: none; }
+    }
   </style>
 </head>
 <body>
   <h1>6<span class="amp">&amp;</span>2 GAMES</h1>
-  <nav>
+  <nav inert>
     <a class="menu-item" href="games/pong/index.html">
       <span class="arrow">&#9658;</span>
       <span>6&amp;2 PONG</span>
@@ -201,8 +243,34 @@
     </a>
   </nav>
 
+  <div id="enter-overlay" role="button" tabindex="0" aria-label="Vstoupit a zapnout zvuk">
+    <span class="prompt">&#9658; KLIKNI PRO START &#9668;</span>
+  </div>
+
   <script src="menu-ambient.js"></script>
   <script>
+    // Úvodní „attract" překryv: první gesto (klik/klávesa/dotyk) ho zhasne a
+    // odkryje menu. Samotný zvuk spouští menu-ambient.js (jeho gesture-listener
+    // na window) — tady jen uklidíme překryv a vrátíme menu do hry (sundáme inert).
+    (function () {
+      var overlay = document.getElementById('enter-overlay');
+      if (!overlay) return;
+      var nav = document.querySelector('nav');
+      var GESTURES = ['pointerdown', 'keydown', 'touchstart'];
+      var done = false;
+      function dismiss() {
+        if (done) return;
+        done = true;
+        GESTURES.forEach(function (ev) { window.removeEventListener(ev, dismiss, true); });
+        if (nav) nav.removeAttribute('inert');
+        overlay.classList.add('hidden');
+        var hide = function () { overlay.style.display = 'none'; };
+        overlay.addEventListener('transitionend', hide, { once: true });
+        setTimeout(hide, 500); // fallback, kdyby transitionend nedorazil
+      }
+      GESTURES.forEach(function (ev) { window.addEventListener(ev, dismiss, true); });
+    })();
+
     // Při odchodu do hry označ, že jdeme z rozcestníku — hra se pak umí vrátit
     // HISTORIÍ (přes bfcache), takže ambient zvuk menu po návratu zase naběhne sám.
     document.querySelectorAll('.menu-item').forEach(function (a) {
