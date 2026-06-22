@@ -7,7 +7,7 @@ window.PS = window.PS || {};
 PS.Audio = {
   ctx: null,
   muted: (() => {
-    try { return localStorage.getItem('ps_muted') === '1'; } catch (e) { return false; }
+    try { return localStorage.getItem(PS.STORAGE.muted) === '1'; } catch (e) { return false; }
   })(),
   hitThrottle: 0,
 
@@ -16,13 +16,16 @@ PS.Audio = {
       try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); }
       catch (e) { return null; }
     }
-    if (this.ctx.state === 'suspended') this.ctx.resume();
+    if (this.ctx.state === 'suspended') {
+      const r = this.ctx.resume();
+      if (r && r.catch) r.catch(() => { /* obnovení kontextu selhalo — ignoruj */ });
+    }
     return this.ctx;
   },
 
   setMuted(m) {
     this.muted = m;
-    try { localStorage.setItem('ps_muted', m ? '1' : '0'); } catch (e) { /* private mode */ }
+    try { localStorage.setItem(PS.STORAGE.muted, m ? '1' : '0'); } catch (e) { /* private mode */ }
     // hudbu (HTML5 Audio) je nutné REÁLNĚ pozastavit — iOS ignoruje volume=0
     if (window.PS && PS.Music && PS.Music.applyMute) PS.Music.applyMute();
   },

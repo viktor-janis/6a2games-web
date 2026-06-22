@@ -28,6 +28,7 @@ PS.STORAGE = {
   record: 'ps_record', // rekord — JSON { time, name } (od zavedení jmen)
   name: 'ps_name',     // naposledy zadané herní jméno (předvyplňuje se)
   touch: 'ps_touch',   // dotykové volby — JSON { size, opacity } (joystick)
+  muted: 'ps_muted',   // vypnutý zvuk (M) — '1' / '0'
 };
 
 // ---------- Hudba na pozadí ----------
