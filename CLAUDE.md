@@ -29,7 +29,7 @@ Repo má kvalitní README; aby se s tímhle souborem nerozjely, má každá obla
 > Designové zásady (žádný build, minimální závislosti, hratelnost, retro) vlastní kořenový `README.md`. Tady jen to, co z nich plyne operačně:
 
 - **Žádný bundler ani ES moduly.** Čisté HTML/CSS/JS přes `<script>` tagy, musí jet i z `file://`. Phaser 3 jen přes CDN (jsdelivr).
-- **Žádné binární assety v repu** (obrázky/zvuky): grafika se kreslí proceduálně do Canvas textur, SFX se syntetizují přes WebAudio. Výjimka jsou **komprimované MP3** hudby (mastery zůstávají lokálně, `.gitignore`).
+- **Binární assety drž na minimu.** Party Survivors je celé proceduální: grafika se kreslí do Canvas textur, SFX se syntetizují přes WebAudio; jediné binární soubory jsou **komprimované MP3** hudby na pozadí (mastery zůstávají lokálně, `.gitignore`). **Výjimka — Pong** záměrně používá reálné assety v repu: vítězné/prohrávací **fotky** (`games/pong/foto/`), `mystery_box.png` a **hlasové MP3 klipy** mystery boxů (`games/pong/sounds/`). Nová hra ať assety minimalizuje, ale bitmapy/zvukové klipy zakázané nejsou (viz `README.md`, „Přidání nové hry").
 - **Žádná hudba na pozadí webu.** Úvodní rozcestník (`index.html`) má jen jemný **syntetizovaný ambient zvuk** (`menu-ambient.js`, WebAudio, ne hudba — tlumené „bzučení", zesílí při hoveru na položku menu, spustí se po 1. gestu). Jediná hudba je Party Survivors in-game (`js/music.js` = `PS.Music`, jen v `GameScene`); Pong má vlastní syntetizované SFX. (Dřívější sdílená hub hudba menu byla zrušena.)
 - **Úvodní „attract" překryv (`#enter-overlay` v `index.html`).** Kvůli autoplay policy (zvuk až po 1. gestu) by první klik jinak padl rovnou na položku menu a odvedl do hry → ambient by se jen „probzukl". Překryv „KLIKNI PRO START" zachytí první gesto (nepřesměruje), takže ambient pak hraje jako trvalá kulisa. Spuštění zvuku zařídí `menu-ambient.js` (jeho gesture-listener); overlay jen sám sebe schová a sundá `inert` z `<nav>` (do té doby brání prokliku/Tabu na skryté odkazy). Texty jen ASCII (Press Start 2P nemá české diakritiky). **Nemazat** — bez něj se vrací původní problém.
 - **Mobil na šířku je first-class** (dotyk, fullscreen, výzva k otočení). Nový UI prvek řeš i pro touch.
@@ -62,6 +62,7 @@ node games/party-survivors/tools/balance-sim.js    # headless DPS simulátor út
 node games/party-survivors/tools/spawn-curve.js     # křivka tlaku spawnu v čase
 node games/party-survivors/tools/build-wording.js   # export VŠECH herních textů → wording.xlsx (ruční úpravy, pak read-wording.js zpět)
 node games/party-survivors/tools/build-music.js     # komprese hudby (potřebuje ffmpeg v PATH); dvojklik tools/compress-music.bat
+node games/party-survivors/tools/check-heroes.js    # ověří paritu HERO_NAMES (worker.js) ↔ PS.HEROES (data.js); exit 1 = nesoulad
 ```
 
 `build-music.js` zkomprimuje mastery z `music/` → `music/compressed/*.mp3` (128k) a **autogeneruje `js/playlist.js`** (`PS.MUSIC`) — ten needituj ručně. Přidání tracku: master s číselným prefixem (`05_nazev.wav`) do `music/` + spustit skript.
