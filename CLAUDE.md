@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **6&2 Games** (`6a2games.cz`) — web s retro arkádovými hrami, jedna hra = jedna složka v `games/`. **Žádný build krok pro web ani žádná CI**: hry běží přímo v prohlížeči a GitHub Pages servíruje repo **přímo z větve `main`** (doména přes `CNAME`), takže **deploy = `git push` na `main`**. Jediné build/CLI kroky jsou pomocné (komprese hudby, leaderboard worker) — viz níže.
 
-Orientačně: `index.html` = rozcestník, `hub-music.js` = sdílená hudba menu napříč stránkami, `games/party-survivors/` = hlavní hra (Phaser 3, vlastní detailní `README.md`), `games/pong/` = menší hra (celá v jednom `index.html`).
+Orientačně: `index.html` = rozcestník (+ `menu-ambient.js` = syntetizovaný ambient zvuk menu), `games/party-survivors/` = hlavní hra (Phaser 3, vlastní detailní `README.md`), `games/pong/` = menší hra (celá v jednom `index.html`).
 
 ## Zdroje pravdy (a jak je držet v synchronu)
 
@@ -30,7 +30,7 @@ Repo má kvalitní README; aby se s tímhle souborem nerozjely, má každá obla
 
 - **Žádný bundler ani ES moduly.** Čisté HTML/CSS/JS přes `<script>` tagy, musí jet i z `file://`. Phaser 3 jen přes CDN (jsdelivr).
 - **Žádné binární assety v repu** (obrázky/zvuky): grafika se kreslí proceduálně do Canvas textur, SFX se syntetizují přes WebAudio. Výjimka jsou **komprimované MP3** hudby (mastery zůstávají lokálně, `.gitignore`).
-- **Dvě nezávislé hudby:** hub (`hub-music.js` = `window.HubMusic`, menu webu i her, utichne při `stopForGame()`, tracky `hudba/compressed/`) × Party Survivors in-game (`js/music.js` = `PS.Music`, jen v `GameScene`).
+- **Žádná hudba na pozadí webu.** Úvodní rozcestník (`index.html`) má jen jemný **syntetizovaný ambient zvuk** (`menu-ambient.js`, WebAudio, ne hudba — tlumené „bzučení", zesílí při hoveru na položku menu, spustí se po 1. gestu). Jediná hudba je Party Survivors in-game (`js/music.js` = `PS.Music`, jen v `GameScene`); Pong má vlastní syntetizované SFX. (Dřívější sdílená hub hudba menu byla zrušena.)
 - **Mobil na šířku je first-class** (dotyk, fullscreen, výzva k otočení). Nový UI prvek řeš i pro touch.
 
 ## Lokální spuštění

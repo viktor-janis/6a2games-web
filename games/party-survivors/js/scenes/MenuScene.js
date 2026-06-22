@@ -7,9 +7,6 @@ window.MenuScene = class MenuScene extends Phaser.Scene {
   create() {
     const { width: W, height: H } = this.scale;
 
-    // hudba na pozadí webu (sdílená napříč stránkami) — v menu hraje / naváže dalším trackem
-    if (window.HubMusic) HubMusic.play();
-
     // mobil: menu na FIT (obnovit z herního ENVELOPu) — vše viditelné, libovolná orientace
     if (PS.isTouch) PS.applyScaleMode(this, Phaser.Scale.FIT);
 
@@ -19,6 +16,22 @@ window.MenuScene = class MenuScene extends Phaser.Scene {
     if (back) {
       back.style.display = 'block';
       this.events.once('shutdown', () => { back.style.display = 'none'; });
+      // Návrat na rozcestník: přišli-li jsme z menu webu (rozcestník při odchodu do
+      // hry uloží značku do sessionStorage), vrať se HISTORIÍ → rozcestník se obnoví
+      // z bfcache a jeho ambient zvuk zase naběhne sám. (Čerstvé načtení by kvůli
+      // autoplay pravidlu hrálo až po gestu.) Jinak nech proběhnout výchozí odkaz.
+      if (!back.dataset.hubWired) {
+        back.dataset.hubWired = '1';
+        back.addEventListener('click', (e) => {
+          try {
+            if (sessionStorage.getItem('from-hub') === '1' && history.length > 1) {
+              sessionStorage.removeItem('from-hub');
+              e.preventDefault();
+              history.back();
+            }
+          } catch (err) { /* nech proběhnout výchozí odkaz */ }
+        });
+      }
     }
 
     // Pozadí — tmavá klubová atmosféra (sjednoceno s vizuálem hry)

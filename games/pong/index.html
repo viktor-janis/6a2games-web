@@ -509,7 +509,6 @@
   <button class="settings-touch-btn settings-touch-only" id="settings-touch-back">← Zpět</button>
 </div>
 
-<script src="../../hub-music.js"></script>
 <script>
 (() => {
   const canvas    = document.getElementById('game');
@@ -927,7 +926,6 @@
     initBall();
     state = STATE.MENU;
     updateHint();
-    if (window.HubMusic) HubMusic.play();
   }
 
   function startNewMatch() {
@@ -947,7 +945,6 @@
     configureTouchControls();
     state = STATE.READY;
     updateHint();
-    if (window.HubMusic) HubMusic.stopForGame();
   }
 
   function startPoint() {
@@ -1474,11 +1471,32 @@
   function chooseMulti() { gameMode = MODE.MULTI; menuPhase = 'score';      updateHint(); }
   function chooseDifficulty(level) { setDifficulty(level); menuPhase = 'score'; updateHint(); }
   function chooseScore(n) { winScore = n; startNewMatch(); }
+  // Návrat na rozcestník webu. Přišli-li jsme sem z menu (rozcestník při odchodu do
+  // hry uloží značku do sessionStorage), vrátíme se HISTORIÍ → prohlížeč rozcestník
+  // obnoví z bfcache a jeho ambient zvuk zase naběhne sám. (Čerstvé načtení by kvůli
+  // autoplay pravidlu prohlížeče hrálo až po gestu.) Jinak (přímé otevření hry)
+  // přejdeme klasicky na index.html.
+  function cameFromHub() {
+    try { return sessionStorage.getItem('from-hub') === '1' && history.length > 1; }
+    catch (err) { return false; }
+  }
+  function goToHub(e) {
+    if (cameFromHub()) {
+      try { sessionStorage.removeItem('from-hub'); } catch (err) { /* noop */ }
+      if (e) e.preventDefault();
+      history.back();
+    } else if (!e) {
+      window.location.href = '../../index.html';
+    }
+    // s kliknutím a ne-z-menu necháme proběhnout výchozí <a href>
+  }
+  document.getElementById('back-to-menu').addEventListener('click', goToHub);
+
   function menuBack() {
     if (menuPhase === 'settings') { hideSettings(); return; }
     if      (menuPhase === 'score')      menuPhase = (gameMode === MODE.SOLO) ? 'difficulty' : 'mode';
     else if (menuPhase === 'difficulty') menuPhase = 'mode';
-    else { window.location.href = '../../index.html'; return; }
+    else { goToHub(); return; }
     updateHint();
   }
 

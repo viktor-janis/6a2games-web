@@ -17,7 +17,5 @@ games/party-survivors/.gitignore/
 games/party-survivors/music/*
 !games/party-survivors/music/compressed/
 
-# Hudba na pozadí webu — WAV mastery jen lokálně; do deploye jdou jen
-# komprimované MP3 v hudba/compressed/ (přehrává hub-music.js).
-hudba/*
-!hudba/compressed/
+# Hudba na pozadí webu byla zrušena; případné zbylé lokální mastery v hudba/ do gitu nepatří.
+hudba/

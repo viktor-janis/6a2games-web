@@ -186,29 +186,6 @@
     .menu-item:active {
       transform: scale(0.98);
     }
-
-    /* Ztlumení hudby na pozadí */
-    #music-mute {
-      position: fixed;
-      right: 18px;
-      bottom: 18px;
-      z-index: 200;
-      width: 52px;
-      height: 52px;
-      font-size: 22px;
-      line-height: 1;
-      cursor: pointer;
-      color: #00ffff;
-      background: rgba(0, 255, 255, 0.06);
-      border: 2px solid #00ffff;
-      border-radius: 10px;
-      box-shadow:
-        0 0 8px rgba(0, 255, 255, 0.4),
-        inset 0 0 10px rgba(0, 255, 255, 0.12);
-      transition: background 0.15s ease, transform 0.15s ease;
-    }
-    #music-mute:hover { background: rgba(0, 255, 255, 0.18); transform: scale(1.06); }
-    #music-mute:active { transform: scale(0.96); }
   </style>
 </head>
 <body>
@@ -224,19 +201,15 @@
     </a>
   </nav>
 
-  <button id="music-mute" type="button" aria-label="Hudba zapnout/vypnout" title="Hudba">🔊</button>
-
-  <script src="hub-music.js"></script>
+  <script src="menu-ambient.js"></script>
   <script>
-    (function () {
-      var b = document.getElementById('music-mute');
-      function sync() { b.textContent = (window.HubMusic && HubMusic.isMuted()) ? '🔇' : '🔊'; }
-      sync();
-      b.addEventListener('click', function () {
-        if (window.HubMusic) HubMusic.toggleMute();
-        sync();
+    // Při odchodu do hry označ, že jdeme z rozcestníku — hra se pak umí vrátit
+    // HISTORIÍ (přes bfcache), takže ambient zvuk menu po návratu zase naběhne sám.
+    document.querySelectorAll('.menu-item').forEach(function (a) {
+      a.addEventListener('click', function () {
+        try { sessionStorage.setItem('from-hub', '1'); } catch (e) { /* soukromý režim */ }
       });
-    })();
+    });
   </script>
 </body>
 </html>

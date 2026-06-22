@@ -7,6 +7,7 @@ Webové arkádové hry s retro CRT estetikou. Každá hra je samostatná a běž
 ```
 /
 ├── index.html          # Hlavní stránka s menu her
+├── menu-ambient.js     # Syntetizovaný ambient zvuk menu (WebAudio)
 ├── favicon.png
 └── games/
     └── <nazev-hry>/    # Každá hra má vlastní složku
