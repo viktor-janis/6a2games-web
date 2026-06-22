@@ -10,7 +10,15 @@
 <meta name="apple-mobile-web-app-title" content="Pong">
 <link rel="apple-touch-icon" href="../../favicon.png">
 <title>Pong</title>
+<meta name="description" content="6&amp;2 Pong — retro pong s mystery boxy přímo v prohlížeči. Hraj proti počítači nebo ve dvou.">
 <link rel="icon" type="image/png" href="../../favicon.png">
+<!-- Náhled při sdílení odkazu (Open Graph / Twitter) -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="6&amp;2 Pong">
+<meta property="og:description" content="Retro pong s mystery boxy — proti počítači nebo ve dvou.">
+<meta property="og:url" content="https://6a2games.cz/games/pong/index.html">
+<meta property="og:image" content="https://6a2games.cz/favicon.png">
+<meta name="twitter:card" content="summary">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- Baloo 2 – sjednoceno s Party Survivors (výzva k otočení + hláška „celá obrazovka") -->
@@ -419,6 +427,12 @@
     line-height: 1.3; max-width: calc(100vw - 80px);
     opacity: 0; pointer-events: none;
   }
+
+  /* OS „omezit pohyb" (prefers-reduced-motion) — zklidnit animace */
+  @media (prefers-reduced-motion: reduce) {
+    #rotate .icon { animation: none; }
+    .settings-key-btn.listening { animation: none; }
+  }
 </style>
 </head>
 <body>
@@ -515,6 +529,7 @@
   const ctx       = canvas.getContext('2d');
   const W = canvas.width;   // 800
   const H = canvas.height;  // 500
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)'); // OS „omezit pohyb"
 
   const overlay          = document.getElementById('end-overlay');
   const endSingle        = document.getElementById('end-single');
@@ -530,6 +545,12 @@
   const settingsOverlay  = document.getElementById('settings-overlay');
   const settingsStatus   = document.getElementById('settings-status');
   const settingsBtns     = document.querySelectorAll('.settings-key-btn');
+
+  // Když fotka chybí (např. překlep / velikost písmen na case-sensitive serveru), nech místo ní
+  // prázdno místo „rozbité" ikony; při dalším zobrazení se zkusí znovu (reset v showEndScreen).
+  [endPhoto, endPhotoLeft, endPhotoRight].forEach(img => {
+    img.addEventListener('error', () => { if (img.getAttribute('src')) img.style.visibility = 'hidden'; });
+  });
 
   // ─── Foto pro výsledkovou obrazovku ──────────────────────────────────────
   const WIN_PHOTO_PATHS = [
@@ -594,14 +615,18 @@
   ];
 
   const ALL_PHOTO_PATHS = [...WIN_PHOTO_PATHS, ...LOSE_PHOTO_PATHS];
-  const ALL_IMAGES = ALL_PHOTO_PATHS.map(src => {
-    const img = new Image();
-    img.src = src;
-    return img;
-  });
 
+  // Fotky + krabici nenačítáme hned při otevření stránky (na pomalé mobilní síti by zbytečně
+  // soupeřily o pásmo) — až při první hře. Do konce zápasu se v klidu stáhnou a koncová
+  // obrazovka je má z cache.
   const mysteryBoxImg = new Image();
-  mysteryBoxImg.src = 'foto/mystery_box.png';
+  let assetsPreloaded = false;
+  function preloadAssets() {
+    if (assetsPreloaded) return;
+    assetsPreloaded = true;
+    mysteryBoxImg.src = 'foto/mystery_box.png';
+    ALL_PHOTO_PATHS.forEach(src => { const img = new Image(); img.src = src; });
+  }
 
   function pickRandom(arr) {
     return arr[Math.floor(Math.random() * arr.length)];
@@ -618,6 +643,7 @@
 
   // ─── Konečná obrazovka ────────────────────────────────────────────────────
   function showEndScreen(p1Won) {
+    [endPhoto, endPhotoLeft, endPhotoRight].forEach(img => { img.style.visibility = ''; }); // reset po případné chybě
     if (gameMode === MODE.SOLO) {
       if (p1Won) {
         endTitle.innerHTML = 'VYHRÁL JSI – APPROVED BY 6&amp;2';
@@ -786,6 +812,12 @@
       const AC = window.AudioContext || window.webkitAudioContext;
       if (AC) audioCtx = new AC();
     }
+    // po přerušení (iOS na pozadí / hovor) nebo obnově z bfcache zůstává kontext uspaný → probudit,
+    // jinak by syntetizované pípáky zbytek relace mlčely
+    if (audioCtx && audioCtx.state === 'suspended') {
+      const r = audioCtx.resume();
+      if (r && r.catch) r.catch(() => {});
+    }
   }
   function beep(freq, duration = 0.07, type = 'square', gain = 0.06) {
     if (!audioCtx) return;
@@ -929,6 +961,7 @@
   }
 
   function startNewMatch() {
+    preloadAssets(); // načti fotky + krabici (jen poprvé) — ne hned při otevření stránky
     player.score = 0;
     right.score  = 0;
     player.h          = PADDLE_H;
@@ -1359,7 +1392,7 @@
       const remaining = BOX_LIFESPAN - (now - box.spawnTime);
       let alpha = 1;
       if (remaining < BOX_BLINK_AT) {
-        alpha = 0.25 + 0.75 * Math.abs(Math.sin(now / 160 * Math.PI));
+        alpha = reduceMotion.matches ? 0.85 : 0.25 + 0.75 * Math.abs(Math.sin(now / 160 * Math.PI));
       }
       ctx.save();
       ctx.globalAlpha = alpha;
@@ -1417,7 +1450,7 @@
         drawMessage([isTouch ? 'ŤUKNI PRO START' : 'STISKNI MEZERNÍK PRO START']);
         // Blikající šipka ukazující směr servu
         const arrow = pendingDirX > 0 ? '→' : '←';
-        const blink = 0.45 + 0.55 * Math.abs(Math.sin(now / 380));
+        const blink = reduceMotion.matches ? 1 : 0.45 + 0.55 * Math.abs(Math.sin(now / 380));
         ctx.save();
         ctx.globalAlpha  = blink;
         ctx.fillStyle    = '#fff';
@@ -1597,13 +1630,15 @@
   }
 
   // Výzva k otočení na šířku (shodná s Party Survivors) + pauza hry v portrétu
+  const portraitMQ = window.matchMedia('(orientation: portrait)'); // jednou (volá se z loop každý frame)
   let rotateActive = false;
   function updateRotate() {
     const r = document.getElementById('rotate');
     if (!r) return;
-    const portrait = window.matchMedia('(orientation: portrait)').matches;
-    rotateActive = isTouch && portrait && (state === STATE.READY || state === STATE.PLAYING);
-    r.style.display = rotateActive ? 'flex' : 'none';
+    const active = isTouch && portraitMQ.matches && (state === STATE.READY || state === STATE.PLAYING);
+    if (active === rotateActive) return; // beze změny → nesahat na DOM
+    rotateActive = active;
+    r.style.display = active ? 'flex' : 'none';
   }
   window.addEventListener('orientationchange', () => setTimeout(updateRotate, 250));
   window.addEventListener('resize', updateRotate);
