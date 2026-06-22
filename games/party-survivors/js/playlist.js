@@ -9,4 +9,5 @@ PS.MUSIC = [
   'music/compressed/02-bozkov-beat.mp3',
   'music/compressed/03-lepsi-spolecnost-beat-master2.mp3',
   'music/compressed/04-obyvak-beat.mp3',
+  'music/compressed/05-xtreme-beat.mp3',
 ];
