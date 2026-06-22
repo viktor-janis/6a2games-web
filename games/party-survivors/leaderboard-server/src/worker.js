@@ -134,17 +134,26 @@ async function handleScore(request, env) {
     .bind(ipHash, now - RATE_WINDOW).all();
   if (rl && rl[0] && rl[0].c >= RATE_LIMIT) return json(request, { error: 'rate limit' }, 429);
 
-  // --- jednorázový token: stejný run nejde odeslat dvakrát ---
+  // --- jednorázový token + uložení skóre ATOMICKY (D1 batch = transakce) ---
+  // Token (PRIMARY KEY `nonce`) brání odeslat stejný run dvakrát. Batch zajistí, že se skóre
+  // uloží JEN když projde i vložení tokenu — a naopak se token „nespálí" bez uloženého skóre.
   try {
-    await env.DB.prepare('INSERT INTO used_tokens (nonce, created_at) VALUES (?, ?)')
-      .bind(nonce, now).run();
+    await env.DB.batch([
+      env.DB.prepare('INSERT INTO used_tokens (nonce, created_at) VALUES (?, ?)').bind(nonce, now),
+      env.DB.prepare('INSERT INTO scores (name, time, hero_id, ip_hash, created_at) VALUES (?, ?, ?, ?, ?)')
+        .bind(name, time, heroId, ipHash, now),
+    ]);
   } catch (e) {
+    // typicky kolize `nonce` (PRIMARY KEY) → run už byl odeslán; celá transakce se zruší
     return json(request, { error: 'token already used' }, 409);
   }
 
-  await env.DB.prepare(
-    'INSERT INTO scores (name, time, hero_id, ip_hash, created_at) VALUES (?, ?, ?, ?, ?)')
-    .bind(name, time, heroId, ipHash, now).run();
+  // Úklid: tokeny starší než TOKEN_MAX_AGE už nikdy neprojdou (kontrola stáří výše), takže je
+  // můžeme zahodit a tabulka neroste donekonečna. Chyba úklidu nesmí ohrozit úspěšný zápis.
+  try {
+    await env.DB.prepare('DELETE FROM used_tokens WHERE created_at < ?')
+      .bind(now - TOKEN_MAX_AGE).run();
+  } catch (e) { /* úklid není kritický */ }
 
   return handleLeaderboard(request, env);
 }
